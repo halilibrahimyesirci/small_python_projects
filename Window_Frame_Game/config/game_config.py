@@ -70,19 +70,19 @@ WINDOW_ALPHA = 0.8
 # Player settings
 PLAYER_WINDOW_TITLE = "Hunter"
 PLAYER_WINDOW_SIZE = (100, 100)
-PLAYER_COLOR = "black"  # Değişken adını düzelttik (PLAYER_WINDOW_COLOR -> PLAYER_COLOR)
-PLAYER_SHAPE = "rectangle"  # Değişken adını düzelttik (PLAYER_WINDOW_SHAPE -> PLAYER_SHAPE)
-PLAYER_SPEED = 5  # Değişken adını düzelttik
-PLAYER_OUTLINE_COLOR = "white"  # Yeni eklenen çerçeve rengi
+PLAYER_COLOR = "black"
+PLAYER_SHAPE = "rectangle"
+PLAYER_SPEED = 300  # Increased from 5 to 300 for faster movement
+PLAYER_OUTLINE_COLOR = "white"
 PLAYER_MAX_HEALTH = 3  # This will be overridden by difficulty setting
 PLAYER_INVINCIBILITY_TIME = 2.0
 
-# Dash ability settings
-DASH_COOLDOWN = 1.5  # Dash yeteneği bekleme süresi (saniye)
-DASH_SPEED = 500  # Dash hızı
-DASH_COLOR = "cyan"  # Dash sırasındaki efekt rengi
-DASH_READY_COLOR = "lime"  # Dash hazır olduğunda gösterge rengi
-DASH_COOLDOWN_COLOR = "red"  # Dash bekleme durumundaki gösterge rengi
+# Player dash ability settings
+DASH_COOLDOWN = 2.0      # Seconds before dash can be used again
+DASH_SPEED = 20          # Speed multiplier for dash
+DASH_COLOR = "cyan"      # Flash color during dash
+DASH_READY_COLOR = "lime" # Indicator color when dash is ready
+DASH_COOLDOWN_COLOR = "red" # Indicator color when dash is on cooldown
 
 # Target settings
 TARGET_WINDOW_TITLE = "Target"

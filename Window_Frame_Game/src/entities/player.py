@@ -69,6 +69,7 @@ class PlayerEntity(BaseEntity):
         self.max_health = health
         self.speed = PLAYER_SPEED
         self.score = 0
+        self.speed_multiplier = 1.0  # Ensure speed_multiplier is set for dash ability
         
         # Input state
         self.keys_pressed = set()
@@ -471,30 +472,56 @@ class PlayerEntity(BaseEntity):
         Returns:
             Blended color as hex string
         """
-        # Convert color names to hex if needed
-        if not color1.startswith("#"):
-            temp_label = tk.Label(bg=color1)
-            color1 = temp_label.cget("bg")
-            temp_label.destroy()
+        try:
+            # Create a root widget to handle color conversions
+            root = tk.Tk()
+            root.withdraw()  # Hide the window
             
-        if not color2.startswith("#"):
-            temp_label = tk.Label(bg=color2)
-            color2 = temp_label.cget("bg")
-            temp_label.destroy()
+            # Convert color names to hex using tkinter's color system
+            if not color1.startswith("#"):
+                try:
+                    color1 = root.winfo_rgb(color1)
+                    # Convert to hex format (RGB values in tkinter are 0-65535)
+                    r1, g1, b1 = [int(c / 256) for c in color1]
+                except:
+                    # Default to red if conversion fails
+                    r1, g1, b1 = 255, 0, 0
+            else:
+                # Parse hex colors
+                r1 = int(color1[1:3], 16)
+                g1 = int(color1[3:5], 16)
+                b1 = int(color1[5:7], 16)
             
-        # Parse hex colors
-        r1 = int(color1[1:3], 16)
-        g1 = int(color1[3:5], 16)
-        b1 = int(color1[5:7], 16)
-        
-        r2 = int(color2[1:3], 16)
-        g2 = int(color2[3:5], 16)
-        b2 = int(color2[5:7], 16)
-        
-        # Blend colors
-        r = int(r1 + (r2 - r1) * blend_factor)
-        g = int(g1 + (g2 - g1) * blend_factor)
-        b = int(b1 + (b2 - b1) * blend_factor)
-        
-        # Return as hex
-        return f"#{r:02x}{g:02x}{b:02x}"
+            if not color2.startswith("#"):
+                try:
+                    color2 = root.winfo_rgb(color2)
+                    # Convert to hex format
+                    r2, g2, b2 = [int(c / 256) for c in color2]
+                except:
+                    # Default to green if conversion fails
+                    r2, g2, b2 = 0, 255, 0
+            else:
+                # Parse hex colors
+                r2 = int(color2[1:3], 16)
+                g2 = int(color2[3:5], 16)
+                b2 = int(color2[5:7], 16)
+            
+            # Destroy the temporary root
+            root.destroy()
+            
+            # Blend colors
+            r = int(r1 + (r2 - r1) * blend_factor)
+            g = int(g1 + (g2 - g1) * blend_factor)
+            b = int(b1 + (b2 - b1) * blend_factor)
+            
+            # Ensure values are within range
+            r = max(0, min(255, r))
+            g = max(0, min(255, g))
+            b = max(0, min(255, b))
+            
+            # Return as hex
+            return f"#{r:02x}{g:02x}{b:02x}"
+            
+        except Exception as e:
+            # If blending fails, return a safe default color
+            return "#FF00FF"  # Magenta as an obvious fallback

@@ -145,6 +145,10 @@ class UIManager:
         frame = ttk.Frame(window, padding=20)
         frame.pack(fill=tk.BOTH, expand=True)
         
+        # Make the window visible
+        window.deiconify()
+        window.update()
+        
         self.logger.debug(f"Created window '{name}'", {"title": title, "dimensions": f"{width}x{height}"})
         
         return window
@@ -236,6 +240,13 @@ class UIManager:
             font=self.small_font
         )
         version_label.pack(side=tk.BOTTOM, pady=10)
+        
+        # Ensure window is visible
+        window.deiconify()
+        window.lift()
+        window.attributes('-topmost', True)
+        window.after(100, lambda: window.attributes('-topmost', False))
+        window.focus_force()
         
         self.logger.info("Main menu created")
         

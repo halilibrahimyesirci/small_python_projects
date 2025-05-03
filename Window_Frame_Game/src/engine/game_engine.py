@@ -223,8 +223,12 @@ class GameEngine:
         self.obstacles = []
         self.powerups = []
         
-        # Create player (placeholder for now)
-        # self.player = PlayerEntity()
+        # Create player entity
+        from ..entities.player import PlayerEntity
+        
+        # Get player health from difficulty settings
+        player_health = DIFFICULTY_LEVELS[self.difficulty]["player_health"]
+        self.player = PlayerEntity(health=player_health, parent=self.root)
         
         # Schedule first spawns
         self.last_target_spawn = 0
@@ -434,9 +438,94 @@ class GameEngine:
             
     def _spawn_target(self):
         """Spawn a new target entity"""
-        # Placeholder - this would actually create a new target entity
-        self.logger.debug("Spawning target")
-        # self.targets.append(TargetEntity())
+        try:
+            # Import the TargetEntity class
+            from ..entities.target import TargetEntity
+            
+            # Get spawn chances for the current level
+            spawn_chances = get_spawn_chances(self.level)
+            target_chances = spawn_chances["targets"]
+            
+            # Determine target type based on level probabilities
+            target_types = ["standard", "moving", "evasive", "boss"]
+            
+            # Select target type based on probabilities
+            r = random.random()
+            cumulative_prob = 0
+            selected_type = "standard"  # Default fallback
+            
+            for i, prob in enumerate(target_chances):
+                cumulative_prob += prob
+                if r <= cumulative_prob:
+                    selected_type = target_types[i]
+                    break
+            
+            # Calculate random position on screen (avoiding player position)
+            player_pos = self.player.get_position() if self.player else (0, 0)
+            player_size = self.player.get_size() if self.player else (0, 0)
+            
+            # Define safe distance from player
+            safe_distance = 200
+            
+            # Keep trying positions until we find one far enough from player
+            max_attempts = 10
+            for _ in range(max_attempts):
+                # Random position within screen bounds
+                x = random.randint(0, SCREEN_WIDTH - TARGET_WINDOW_SIZE[0])
+                y = random.randint(0, SCREEN_HEIGHT - TARGET_WINDOW_SIZE[1])
+                
+                # Check distance from player
+                dx = x - player_pos[0]
+                dy = y - player_pos[1]
+                distance = (dx*dx + dy*dy) ** 0.5
+                
+                if distance >= safe_distance:
+                    # Position is good, break loop
+                    break
+            
+            # Create target entity
+            target = TargetEntity(
+                target_type=selected_type,
+                level=self.level,
+                difficulty=self.difficulty,
+                parent=self.root
+            )
+            
+            # Set position
+            target.set_position(x, y)
+            
+            # Add to targets list
+            self.targets.append(target)
+            
+            self.logger.debug(f"Target spawned", {
+                "type": selected_type,
+                "position": (x, y)
+            })
+            
+        except Exception as e:
+            self.logger.exception("Error spawning target", e)
+            # Create simplified target as fallback
+            from ..entities.base_entity import BaseEntity
+            
+            # Simple target using BaseEntity (fallback)
+            target = BaseEntity(
+                entity_type="target",
+                title="Target",
+                size=TARGET_WINDOW_SIZE,
+                color=random.choice(TARGET_WINDOW_COLORS),
+                shape="rectangle",
+                parent=self.root
+            )
+            
+            # Random position
+            x = random.randint(0, SCREEN_WIDTH - TARGET_WINDOW_SIZE[0])
+            y = random.randint(0, SCREEN_HEIGHT - TARGET_WINDOW_SIZE[1])
+            target.set_position(x, y)
+            
+            # Add to targets list
+            self.targets.append(target)
+            
+            self.logger.debug("Created fallback target")
         
     def _spawn_obstacle(self):
         """Spawn a new obstacle entity"""
@@ -481,7 +570,21 @@ class GameEngine:
         Returns:
             True if entities are colliding, False otherwise
         """
-        # Placeholder - would implement collision detection
+        # Get entity positions and sizes
+        pos1 = entity1.get_position()
+        size1 = entity1.get_size()
+        pos2 = entity2.get_position()
+        size2 = entity2.get_size()
+        
+        # Calculate entity rectangles
+        rect1 = (pos1[0], pos1[1], pos1[0] + size1[0], pos1[1] + size1[1])
+        rect2 = (pos2[0], pos2[1], pos2[0] + size2[0], pos2[1] + size2[1])
+        
+        # Check for overlap
+        if (rect1[0] < rect2[2] and rect1[2] > rect2[0] and
+            rect1[1] < rect2[3] and rect1[3] > rect2[1]):
+            return True
+            
         return False
         
     def _handle_target_collision(self, target):
