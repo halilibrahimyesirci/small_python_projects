@@ -3,20 +3,20 @@ import json
 import customtkinter as ctk
 from tkinter import messagebox
 
-# Set the appearance mode and default color theme
-ctk.set_appearance_mode("System")  # Options: "System" (default), "Dark", "Light"
-ctk.set_default_color_theme("blue")  # Options: "blue" (default), "green", "dark-blue"
+
+ctk.set_appearance_mode("System") 
+ctk.set_default_color_theme("blue")
 
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         
-        # Configure window
+        
         self.title("CustomTkinter App Base")
         self.geometry("900x600")
         self.minsize(800, 500)
         
-        # Create variables for settings
+        
         self.settings = {
             "theme": ctk.get_appearance_mode(),
             "feature_enabled": True,
@@ -25,15 +25,13 @@ class App(ctk.CTk):
             "font_size": 12
         }
         
-        # Load settings if file exists
         self.settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.json")
         self.load_settings()
         
-        # Create the main layout
+       
         self.create_widgets()
         
     def create_widgets(self):
-        # Create the tabview (tabbed interface)
         self.tabview = ctk.CTkTabview(self, width=800, height=500)
         self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
         
@@ -51,7 +49,7 @@ class App(ctk.CTk):
         self.setup_settings_tab()
     
     def setup_home_tab(self):
-        # Welcome message
+        # Say something about the app right here
         welcome_label = ctk.CTkLabel(
             self.tab_home, 
             text="Welcome to CustomTkinter App Base",
@@ -75,18 +73,18 @@ class App(ctk.CTk):
         action_button.pack(padx=20, pady=20)
     
     def setup_data_tab(self):
-        # Frame for data controls
+        
         control_frame = ctk.CTkFrame(self.tab_data)
         control_frame.pack(padx=20, pady=20, fill="x")
         
-        # Filter entry
+       
         filter_label = ctk.CTkLabel(control_frame, text="Filter:")
         filter_label.pack(side="left", padx=(10, 5), pady=10)
         
         self.filter_entry = ctk.CTkEntry(control_frame, width=200)
         self.filter_entry.pack(side="left", padx=5, pady=10)
         
-        # Filter button
+        
         filter_button = ctk.CTkButton(
             control_frame,
             text="Apply Filter",
@@ -94,11 +92,11 @@ class App(ctk.CTk):
         )
         filter_button.pack(side="left", padx=10, pady=10)
         
-        # Data display area
+        
         self.data_textbox = ctk.CTkTextbox(self.tab_data, width=700, height=400)
         self.data_textbox.pack(padx=20, pady=(0, 20), fill="both", expand=True)
         
-        # Insert placeholder text
+        # Paceholder text for the textbox
         sample_data = "Sample data would appear here.\n\n"
         sample_data += "This textbox can display:\n"
         sample_data += "- Program outputs\n"
@@ -111,11 +109,11 @@ class App(ctk.CTk):
         self.data_textbox.configure(state="disabled")  # Make it read-only
     
     def setup_settings_tab(self):
-        # Create a frame for settings
+        
         settings_frame = ctk.CTkFrame(self.tab_settings)
         settings_frame.pack(padx=20, pady=20, fill="both", expand=True)
         
-        # Theme selection
+        
         theme_label = ctk.CTkLabel(
             settings_frame, 
             text="Theme:",
@@ -132,7 +130,7 @@ class App(ctk.CTk):
         self.theme_dropdown.grid(row=0, column=1, padx=20, pady=(20, 10), sticky="w")
         self.theme_dropdown.set(self.settings["theme"])
         
-        # Feature toggle
+        
         self.feature_var = ctk.BooleanVar(value=self.settings["feature_enabled"])
         feature_switch = ctk.CTkSwitch(
             settings_frame,
@@ -142,7 +140,7 @@ class App(ctk.CTk):
         )
         feature_switch.grid(row=1, column=0, columnspan=2, padx=20, pady=10, sticky="w")
         
-        # Username entry
+        
         username_label = ctk.CTkLabel(settings_frame, text="Username:")
         username_label.grid(row=2, column=0, padx=20, pady=10, sticky="w")
         
@@ -150,7 +148,7 @@ class App(ctk.CTk):
         self.username_entry.grid(row=2, column=1, padx=20, pady=10, sticky="w")
         self.username_entry.insert(0, self.settings["username"])
         
-        # Options combobox
+        
         option_label = ctk.CTkLabel(settings_frame, text="Select Option:")
         option_label.grid(row=3, column=0, padx=20, pady=10, sticky="w")
         
@@ -162,7 +160,7 @@ class App(ctk.CTk):
         self.option_dropdown.grid(row=3, column=1, padx=20, pady=10, sticky="w")
         self.option_dropdown.set(self.settings["selected_option"])
         
-        # Font size slider
+        
         fontsize_label = ctk.CTkLabel(settings_frame, text="Font Size:")
         fontsize_label.grid(row=4, column=0, padx=20, pady=10, sticky="w")
         
@@ -179,7 +177,7 @@ class App(ctk.CTk):
         self.fontsize_value_label = ctk.CTkLabel(settings_frame, text=f"{self.settings['font_size']}px")
         self.fontsize_value_label.grid(row=4, column=2, padx=(0, 20), pady=10, sticky="w")
         
-        # Buttons for settings actions
+        
         button_frame = ctk.CTkFrame(settings_frame, fg_color="transparent")
         button_frame.grid(row=5, column=0, columnspan=3, padx=20, pady=(30, 20), sticky="ew")
         
@@ -217,7 +215,7 @@ class App(ctk.CTk):
         self.fontsize_value_label.configure(text=f"{font_size}px")
     
     def save_settings(self):
-        # Update settings from UI
+        
         self.settings["username"] = self.username_entry.get()
         self.settings["selected_option"] = self.option_dropdown.get()
         
@@ -233,7 +231,7 @@ class App(ctk.CTk):
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, 'r') as f:
                     loaded_settings = json.load(f)
-                    # Update settings dictionary with loaded values
+                    
                     for key, value in loaded_settings.items():
                         if key in self.settings:
                             self.settings[key] = value
@@ -241,7 +239,7 @@ class App(ctk.CTk):
             print(f"Failed to load settings: {str(e)}")
     
     def reset_settings(self):
-        # Reset to default values
+        
         default_settings = {
             "theme": "System",
             "feature_enabled": True,
@@ -250,7 +248,6 @@ class App(ctk.CTk):
             "font_size": 12
         }
         
-        # Update UI
         self.theme_dropdown.set(default_settings["theme"])
         self.change_theme(default_settings["theme"])
         
@@ -264,7 +261,6 @@ class App(ctk.CTk):
         self.fontsize_slider.set(default_settings["font_size"])
         self.fontsize_value_label.configure(text=f"{default_settings['font_size']}px")
         
-        # Update settings dictionary
         self.settings = default_settings.copy()
         
         messagebox.showinfo("Settings", "Settings reset to defaults.")
