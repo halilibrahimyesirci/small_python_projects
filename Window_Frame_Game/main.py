@@ -1,147 +1,111 @@
-from create_window import GameWindow
-from conf import *
-import keyboard
-import time
-import random
+"""
+Window Frame Game - Main Entry Point
+This module initializes and launches the game
 
-class Game:
+Author: GitHub Copilot
+Date: May 3, 2025
+"""
+
+import tkinter as tk
+import sys
+import os
+from pathlib import Path
+
+# Add the project directory to the path to ensure imports work properly
+current_dir = Path(__file__).parent.absolute()
+sys.path.append(str(current_dir))
+
+# Import game engine and UI manager
+from src.engine.game_engine import GameEngine
+from src.ui.ui_manager import UIManager
+
+# Import utility for logging
+from src.utils.logger import Logger
+
+class WindowFrameGame:
+    """Main game class that initializes the window and game components"""
+    
     def __init__(self):
-        self.running = True
-        self.score = 0
-        self.player = GameWindow(PLAYER_WINDOW_TITLE, PLAYER_WINDOW_SIZE, 
-                               PLAYER_WINDOW_COLOR, is_player=True)
-        self.targets = []
-        self.create_targets()
-        self.movement = {'up': False, 'down': False, 'left': False, 'right': False}
-        self.last_update = time.time()
-        self.setup_controls()
-        self.update_game()
-
-    def create_targets(self):
-        for i in range(TARGET_WINDOW_COUNT):
-            target = GameWindow(TARGET_WINDOW_TITLE, TARGET_WINDOW_SIZE,
-                              TARGET_WINDOW_COLORS[i % len(TARGET_WINDOW_COLORS)])
-            self.targets.append(target)
-
-    def setup_controls(self):
-        keyboard.on_press_key('w', lambda _: self.set_movement('up', True))
-        keyboard.on_release_key('w', lambda _: self.set_movement('up', False))
-        keyboard.on_press_key('s', lambda _: self.set_movement('down', True))
-        keyboard.on_release_key('s', lambda _: self.set_movement('down', False))
-        keyboard.on_press_key('a', lambda _: self.set_movement('left', True))
-        keyboard.on_release_key('a', lambda _: self.set_movement('left', False))
-        keyboard.on_press_key('d', lambda _: self.set_movement('right', True))
-        keyboard.on_release_key('d', lambda _: self.set_movement('right', False))
-        keyboard.on_press_key('esc', lambda _: self.quit_game())
-
-    def set_movement(self, direction, value):
-        self.movement[direction] = value
-
-    def update_game(self):
-        try:
-            if not self.running:
-                return
-
-            current_time = time.time()
-            delta_time = current_time - self.last_update
-            self.last_update = current_time
-
-            # Check if any target windows need to be restored
-            self.check_target_windows()
-
-            # Calculate movement based on delta time
-            dx = dy = 0
-            if self.movement['up']: dy -= PLAYER_WINDOW_SPEED * delta_time * 60
-            if self.movement['down']: dy += PLAYER_WINDOW_SPEED * delta_time * 60
-            if self.movement['left']: dx -= PLAYER_WINDOW_SPEED * delta_time * 60
-            if self.movement['right']: dx += PLAYER_WINDOW_SPEED * delta_time * 60
-
-            if dx != 0 or dy != 0:
-                self.move_player(int(dx), int(dy))
-
-            if self.running:
-                self.player.window.after(UPDATE_INTERVAL, self.update_game)
-        except Exception as e:
-            print(f"Error in game update: {e}")
-            self.quit_game()
-
-    def check_target_windows(self):
-        try:
-            for target in self.targets[:]:
-                if not target.is_window_visible():
-                    try:
-                        target.window.deiconify()
-                        x = random.randint(0, SCREEN_WIDTH - TARGET_WINDOW_SIZE[0])
-                        y = random.randint(0, SCREEN_HEIGHT - TARGET_WINDOW_SIZE[1])
-                        target.window.geometry(f"+{x}+{y}")
-                    except:
-                        self.targets.remove(target)
-        except Exception as e:
-            print(f"Error checking target windows: {e}")
-
-    def move_player(self, dx, dy):
-        self.player.move(dx, dy)
-        self.check_collisions()
-
-    def check_collisions(self):
-        player_pos = self.player.get_position()
-        player_size = self.player.get_size()
-
-        for target in self.targets[:]:
-            target_pos = target.get_position()
-            target_size = target.get_size()
-
-            if (player_pos[0] < target_pos[0] + target_size[0] and
-                player_pos[0] + player_size[0] > target_pos[0] and
-                player_pos[1] < target_pos[1] + target_size[1] and
-                player_pos[1] + player_size[1] > target_pos[1]):
+        # Create root window
+        self.root = tk.Tk()
+        self.root.title("Window Frame Game")
+        
+        # Initialize logger
+        self.logger = Logger("WindowFrameGame", log_level=Logger.INFO)
+        self.logger.info("Initializing Window Frame Game")
+        
+        # Set window properties
+        self.root.geometry("1024x768")
+        self.root.configure(bg="#333333")
+        self.root.resizable(True, True)
+        
+        # Initialize UI manager
+        self.ui_manager = UIManager(self.root)
+        
+        # Initialize game engine
+        self.game_engine = GameEngine(self.root)
+        self.game_engine.set_ui_manager(self.ui_manager)
+        
+        # Set up event handlers
+        self._setup_event_handlers()
+        
+        # Register key bindings
+        self._register_key_bindings()
+        
+        # Show the main menu
+        self.logger.info("Showing main menu")
+        self.game_engine.show_main_menu()
+        
+    def _setup_event_handlers(self):
+        """Set up event handlers for window events"""
+        # Handle window close
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        
+        # Handle window resize
+        self.root.bind("<Configure>", self._on_resize)
+        
+    def _register_key_bindings(self):
+        """Register keyboard bindings"""
+        # Game controls
+        self.root.bind("<KeyPress>", self.game_engine.handle_key_press)
+        self.root.bind("<KeyRelease>", self.game_engine.handle_key_release)
+        
+    def _on_close(self):
+        """Handle window close event"""
+        self.logger.info("Window close requested")
+        
+        # Shut down game engine
+        self.game_engine.shutdown()
+        
+        # Destroy the root window
+        self.root.destroy()
+        
+    def _on_resize(self, event):
+        """
+        Handle window resize event
+        
+        Args:
+            event: Tkinter event object
+        """
+        # Only handle if this is for the main window
+        if event.widget == self.root:
+            # Update UI layout
+            if hasattr(self.ui_manager, 'handle_resize'):
+                self.ui_manager.handle_resize(event.width, event.height)
                 
-                self.score += SCORE_INCREMENT
-                target.destroy()
-                self.targets.remove(target)
-
-                # Check if only one target remains, create new targets if needed
-                if len(self.targets) < 2:
-                    self.create_new_targets()
-
-    def create_new_targets(self):
-        new_count = TARGET_WINDOW_COUNT - len(self.targets)
-        for i in range(new_count):
-            target = GameWindow(TARGET_WINDOW_TITLE, TARGET_WINDOW_SIZE,
-                              TARGET_WINDOW_COLORS[i % len(TARGET_WINDOW_COLORS)])
-            self.targets.append(target)
-
-    def quit_game(self):
-        try:
-            self.running = False
-            keyboard.unhook_all()  # Remove all keyboard hooks
-            
-            for target in self.targets[:]:
-                try:
-                    target.destroy()
-                except:
-                    pass
-                    
-            self.targets.clear()
-            
-            if hasattr(self, 'player') and self.player:
-                try:
-                    self.player.destroy()
-                except:
-                    pass
-                    
-        except Exception as e:
-            print(f"Error during quit: {e}")
-        finally:
-            try:
-                if hasattr(self, 'player') and self.player and hasattr(self.player, 'window'):
-                    self.player.window.quit()
-            except:
-                pass
-
     def run(self):
-        self.player.window.mainloop()
-
+        """Run the game"""
+        self.logger.info("Starting game main loop")
+        
+        try:
+            # Start Tkinter main loop
+            self.root.mainloop()
+        except Exception as e:
+            self.logger.exception("Error in main loop", e)
+        finally:
+            self.logger.info("Game exited")
+            
 if __name__ == "__main__":
-    game = Game()
+    # Create and run the game
+    game = WindowFrameGame()
     game.run()
