@@ -525,7 +525,11 @@ class GridSimulation:
                     pygame.draw.rect(screen, color, cell_rect)
                     
                     # Draw cell outline for better visibility
-                    pygame.draw.rect(screen, (r-20, g-20, b+20), cell_rect, 1)
+                    # Ensure outline color values are properly clamped to valid range (0-255)
+                    outline_r = max(0, min(255, r-20))
+                    outline_g = max(0, min(255, g-20))
+                    outline_b = max(0, min(255, b+20))
+                    pygame.draw.rect(screen, (outline_r, outline_g, outline_b), cell_rect, 1)
                 
                 # Optionally draw solid cells if needed
                 elif self.grid[y, x] == SOLID:
