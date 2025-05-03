@@ -57,6 +57,7 @@ class Slider:
         self.label = label
         self.callback = callback
         self.active = False
+        self.discrete_mode = False  # For integer-only values
         self.update_handle_position()
         
     def update_handle_position(self):
@@ -69,8 +70,16 @@ class Slider:
         """Update value based on handle position"""
         relative_x = max(0, min(mouse_x - self.rect.x, self.rect.width - self.handle_width))
         normalized_value = relative_x / (self.rect.width - self.handle_width)
-        self.value = self.min_value + normalized_value * (self.max_value - self.min_value)
+        new_value = self.min_value + normalized_value * (self.max_value - self.min_value)
+        
+        # For discrete (integer) values, round to nearest integer
+        if self.discrete_mode:
+            new_value = round(new_value)
+        
+        # Ensure the value is valid and within range
+        self.value = max(self.min_value, min(self.max_value, new_value))
         self.update_handle_position()
+        
         if self.callback:
             self.callback(self.value)
     
@@ -329,7 +338,8 @@ class WaterSimulation:
             1, 50, self.water_release_rate,
             "Water Amount",
             self.set_water_release_rate
-        ))
+         ))
+        self.simulation_sliders[-1].discrete_mode = True  # Enable discrete mode
         
         # Particle size slider (affects visual size)
         slider_y += slider_height + slider_margin
@@ -481,7 +491,12 @@ class WaterSimulation:
                 
                 # Update all particles
                 for particle in self.particles:
-                    particle.update(sim_dt, self.objects)
+                    if self.sim_type == SIM_PARTICLE:
+                        # For basic particles, pass the full particle list for collision detection
+                        particle.update(sim_dt, self.objects, self.particles)
+                    else:
+                        # SPH particles handle interactions differently
+                        particle.update(sim_dt, self.objects)
                 
             elif self.sim_type == SIM_GRID:
                 # Update grid simulation

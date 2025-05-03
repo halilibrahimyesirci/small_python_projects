@@ -274,12 +274,22 @@ class BasicParticle(Particle):
     """Simple particle class for basic water simulation"""
     def __init__(self, x, y, color=None):
         super().__init__(x, y, color)
-        # No additional properties needed for basic particles as they inherit everything from Particle
+        # For particle collision handling
+        self.collision_cooldown = 0
+        self.force_scale = 0.8  # For better water simulation stability
         
-    def update(self, dt, objects):
+    def update(self, dt, objects, particles=None):
         """Update particle using simple physics"""
         # Apply gravity force
-        self.apply_force(Vector2D(0, GRAVITY * self.mass))
+        self.apply_force(Vector2D(0, GRAVITY * self.mass) * self.force_scale)
+        
+        # Decrease collision cooldown
+        if self.collision_cooldown > 0:
+            self.collision_cooldown -= dt
+        
+        # Handle particle-particle collisions
+        if particles is not None:
+            self.handle_particle_collisions(particles, dt)
         
         # Basic physics update from parent class
         super().update(dt, objects)
@@ -287,6 +297,85 @@ class BasicParticle(Particle):
         # Handle boundary and object collisions
         self.handle_boundary_collision(WIDTH, HEIGHT)
         self.handle_object_collision(objects)
+        
+        # Limit maximum velocity for stability
+        velocity_length = self.velocity.length()
+        max_velocity = 80.0  # Maximum velocity for basic particles
+        if velocity_length > max_velocity:
+            self.velocity = self.velocity * (max_velocity / velocity_length)
+            
+        # Add small random jitter to prevent particles from stacking perfectly
+        if velocity_length < 5.0 and random.random() < 0.02:
+            jitter = Vector2D(random.uniform(-0.3, 0.3), random.uniform(-0.3, 0.3))
+            self.velocity = self.velocity + jitter
+    
+    def handle_particle_collisions(self, particles, dt):
+        """Handle collisions with other particles"""
+        if self.collision_cooldown > 0:
+            return
+            
+        # Check for collisions with other particles
+        for other in particles:
+            # Skip self
+            if other is self:
+                continue
+                
+            # Skip particles with active cooldown (prevents double-processing)
+            if other.collision_cooldown > 0:
+                continue
+                
+            # Calculate distance between particles
+            displacement = self.position - other.position
+            distance_squared = displacement.length_squared()
+            
+            # Sum of radii
+            min_distance = self.radius + other.radius
+            
+            # Check for collision
+            if distance_squared < min_distance * min_distance and distance_squared > 0.0001:
+                # Calculate collision response
+                distance = math.sqrt(distance_squared)
+                
+                # Normal vector
+                normal = displacement / distance
+                
+                # Calculate penetration depth
+                penetration = min_distance - distance
+                
+                # Position correction (prevent overlap)
+                correction = normal * (penetration * 0.5)
+                self.position = self.position + correction
+                other.position = other.position - correction
+                
+                # Calculate relative velocity
+                relative_velocity = self.velocity - other.velocity
+                
+                # Calculate velocity change along normal
+                velocity_along_normal = relative_velocity.dot(normal)
+                
+                # Only push apart if they're moving toward each other
+                if velocity_along_normal < 0:
+                    # Calculate impulse scalar
+                    restitution = 0.3  # Lower for water-like behavior
+                    
+                    # For equal mass particles this simplifies:
+                    impulse_scalar = -(1 + restitution) * velocity_along_normal / 2
+                    
+                    # Apply impulse
+                    impulse = normal * impulse_scalar
+                    self.velocity = self.velocity + impulse
+                    other.velocity = other.velocity - impulse
+                    
+                    # Apply additional "water-like" force - makes them stick together slightly
+                    cohesion = 0.2
+                    lateral_force = Vector2D(-normal.y, normal.x) * (relative_velocity.dot(Vector2D(-normal.y, normal.x)) * cohesion)
+                    
+                    self.velocity = self.velocity - lateral_force
+                    other.velocity = other.velocity + lateral_force
+                
+                # Add small cooldown to prevent collision processing every frame
+                self.collision_cooldown = dt * 0.5
+                other.collision_cooldown = dt * 0.5
 
 class GridSimulation:
     """Grid-based fluid simulation engine"""
@@ -300,6 +389,11 @@ class GridSimulation:
         self.pressure = np.zeros((self.height, self.width), dtype=np.float32)
         self.update_count = 0  # Counter for optimization
         
+        # Active water cells for optimization
+        self.active_cells = set()
+        # Previous water positions for checking changes
+        self.prev_water_positions = set()
+        
     def add_water(self, x, y, amount=1.0):
         """Add water to a grid cell"""
         grid_x, grid_y = int(x // CELL_SIZE), int(y // CELL_SIZE)
@@ -307,6 +401,14 @@ class GridSimulation:
             if self.grid[grid_y, grid_x] == EMPTY:
                 self.grid[grid_y, grid_x] = WATER
                 self.water_levels[grid_y, grid_x] = min(1.0, self.water_levels[grid_y, grid_x] + amount)
+                self.active_cells.add((grid_x, grid_y))
+                
+                # Mark surrounding cells as active too
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        nx, ny = grid_x + dx, grid_y + dy
+                        if 0 <= nx < self.width and 0 <= ny < self.height:
+                            self.active_cells.add((nx, ny))
                 
     def add_solid(self, x, y):
         """Add a solid cell to the grid"""
@@ -323,6 +425,8 @@ class GridSimulation:
         self.velocity_x.fill(0)
         self.velocity_y.fill(0)
         self.pressure.fill(0)
+        self.active_cells.clear()
+        self.prev_water_positions.clear()
         
         # Add solids from objects
         for obj in objects:
@@ -336,17 +440,24 @@ class GridSimulation:
                 self.grid[y1:y2, x1:x2] = SOLID
                 
             elif obj.object_type == OBJ_CIRCLE:
-                # For circles, fill approximation of the circle
+                # For circles, use numpy operations for better performance
                 center_x = int(obj.center_x // CELL_SIZE)
                 center_y = int(obj.center_y // CELL_SIZE)
                 radius_cells = int(obj.radius // CELL_SIZE) + 1
                 
-                for y in range(max(0, center_y - radius_cells), min(self.height, center_y + radius_cells + 1)):
-                    for x in range(max(0, center_x - radius_cells), min(self.width, center_x + radius_cells + 1)):
-                        dx = (x * CELL_SIZE + CELL_SIZE/2) - obj.center_x
-                        dy = (y * CELL_SIZE + CELL_SIZE/2) - obj.center_y
-                        if dx*dx + dy*dy <= (obj.radius * obj.radius):
-                            self.grid[y, x] = SOLID
+                # Create coordinate arrays for faster computation
+                y_range = np.arange(max(0, center_y - radius_cells), min(self.height, center_y + radius_cells + 1))
+                x_range = np.arange(max(0, center_x - radius_cells), min(self.width, center_x + radius_cells + 1))
+                y_coords, x_coords = np.meshgrid(y_range, x_range, indexing='ij')
+                
+                # Calculate distances from center
+                dx = (x_coords * CELL_SIZE + CELL_SIZE/2) - obj.center_x
+                dy = (y_coords * CELL_SIZE + CELL_SIZE/2) - obj.center_y
+                distances_sq = dx*dx + dy*dy
+                
+                # Set cells inside the circle to SOLID
+                mask = distances_sq <= (obj.radius * obj.radius)
+                self.grid[y_coords[mask], x_coords[mask]] = SOLID
                             
             elif obj.object_type == OBJ_POLYGON:
                 # For polygons, check each cell against the polygon
@@ -360,57 +471,96 @@ class GridSimulation:
     
     def update(self, dt):
         """Update the grid-based fluid simulation"""
-        # Performance optimization: Skip some updates for cells that don't change much
+        # Performance optimization: Only update active cells and their neighbors
         self.update_count += 1
-        update_all = (self.update_count % 3 == 0)  # Full update every 3 frames
         
         # Create copies for updating
         new_grid = self.grid.copy()
         new_water_levels = self.water_levels.copy()
         
-        # Process water cells from bottom to top, right to left for better flow behavior
-        water_changed = False
-        active_water_cells = 0
+        # Keep track of water cells and changes
+        current_water_positions = set()
+        newly_active_cells = set()
         
-        for y in range(self.height - 2, -1, -1):
-            for x in range(self.width - 1, -1, -1):
-                if self.grid[y, x] == WATER and self.water_levels[y, x] > 0:
-                    active_water_cells += 1
-                    # Process water cells with significant water or periodically do full update
-                    if self.water_levels[y, x] > 0.05 or update_all:
-                        water_moved = self._process_water_cell(x, y, new_grid, new_water_levels)
-                        water_changed = water_changed or water_moved
+        # Sort active cells for consistent water flow
+        # Process bottom to top, right to left for gravity-based flow
+        sorted_cells = sorted(self.active_cells, key=lambda pos: (pos[1], -pos[0]))
+        water_changed = False
+        
+        # Process only active cells
+        for x, y in sorted_cells:
+            if y >= self.height - 1:  # Skip bottom row
+                continue
+                
+            if self.grid[y, x] == WATER and self.water_levels[y, x] > 0:
+                current_water_positions.add((x, y))
+                water_moved = self._process_water_cell(x, y, new_grid, new_water_levels, newly_active_cells)
+                water_changed = water_changed or water_moved
+        
+        # Update active cells with newly activated ones
+        self.active_cells.update(newly_active_cells)
+        
+        # If water hasn't changed much, we can reduce active cells to improve performance
+        if not water_changed and self.update_count % 5 == 0:
+            # If cell state hasn't changed in multiple updates, remove from active list
+            unchanged_cells = self.prev_water_positions.intersection(current_water_positions)
+            if len(unchanged_cells) > 0.9 * len(current_water_positions) and len(current_water_positions) > 10:
+                # Keep only cells that may still move (have space below or to sides)
+                for x, y in list(self.active_cells):
+                    # If not a water cell or no space to move, deactivate
+                    if (x, y) not in current_water_positions:
+                        # Only deactivate if not near any water
+                        has_water_neighbor = False
+                        for dx in [-1, 0, 1]:
+                            for dy in [-1, 0, 1]:
+                                nx, ny = x + dx, y + dy
+                                if 0 <= nx < self.width and 0 <= ny < self.height and (nx, ny) in current_water_positions:
+                                    has_water_neighbor = True
+                                    break
+                        
+                        if not has_water_neighbor:
+                            self.active_cells.remove((x, y))
         
         # Update the grid state
         np.copyto(self.grid, new_grid)
         np.copyto(self.water_levels, new_water_levels)
         
-        # Remove empty water cells and fix infinite water sources
+        # Remove empty water cells
         for y in range(self.height):
             for x in range(self.width):
                 if self.grid[y, x] == WATER:
-                    # Fix: Remove water cells with very low water level to prevent infinite sources
+                    # Fix: Remove water cells with very low water level
                     if self.water_levels[y, x] <= 0.01:
                         self.grid[y, x] = EMPTY
                         self.water_levels[y, x] = 0
-                    # Fix: Cap water level at 1.0 to prevent infinite accumulation
+                        if (x, y) in self.active_cells:
+                            self.active_cells.remove((x, y))
+                    # Fix: Cap water level at 1.0
                     elif self.water_levels[y, x] > 1.0:
                         self.water_levels[y, x] = 1.0
         
-        # For very small numbers of active cells, add some randomization to prevent stagnation
-        if active_water_cells > 0 and active_water_cells < 200 and not water_changed:
-            # Add small perturbations to a few random water cells
-            for _ in range(min(5, active_water_cells)):
-                # Find a random water cell
-                water_cells = np.where(self.grid == WATER)
-                if len(water_cells[0]) > 0:
-                    idx = np.random.randint(0, len(water_cells[0]))
-                    y, x = water_cells[0][idx], water_cells[1][idx]
-                    # Add small random variation to water level
-                    self.water_levels[y, x] = min(1.0, max(0.01, 
-                                                         self.water_levels[y, x] + np.random.uniform(-0.03, 0.03)))
+        # Every few frames, add randomization to prevent stagnation if few active cells
+        if len(current_water_positions) > 0 and len(current_water_positions) < 100 and self.update_count % 10 == 0:
+            # Add small perturbations to random water cells
+            # Convert set to list for random.sample
+            current_water_list = list(current_water_positions)
+            random_cells = random.sample(current_water_list, min(5, len(current_water_list)))
+            for x, y in random_cells:
+                # Add small random variation to water level
+                self.water_levels[y, x] = min(1.0, max(0.01, 
+                                            self.water_levels[y, x] + np.random.uniform(-0.02, 0.02)))
+                
+                # Reactivate neighboring cells
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        nx, ny = x + dx, y + dy
+                        if 0 <= nx < self.width and 0 <= ny < self.height:
+                            self.active_cells.add((nx, ny))
+        
+        # Update previous water positions for next iteration
+        self.prev_water_positions = current_water_positions
     
-    def _process_water_cell(self, x, y, new_grid, new_water_levels):
+    def _process_water_cell(self, x, y, new_grid, new_water_levels, newly_active_cells):
         """Process water movement from a single cell. Returns True if water moved."""
         current_water = self.water_levels[y, x]
         if current_water <= 0:
@@ -419,7 +569,7 @@ class GridSimulation:
         remaining_water = current_water
         water_moved = False
         
-        # Try to flow down
+        # Try to flow down - vertical flow is prioritized
         if y < self.height - 1:
             if self.grid[y + 1, x] == EMPTY:
                 # Empty cell below, transfer all water
@@ -427,74 +577,112 @@ class GridSimulation:
                 new_grid[y + 1, x] = WATER
                 new_water_levels[y + 1, x] += flow_amount
                 new_water_levels[y, x] = 0
+                
+                # Update active cells
+                newly_active_cells.add((x, y+1))
+                for dx in [-1, 0, 1]:
+                    nx = x + dx
+                    if 0 <= nx < self.width:
+                        newly_active_cells.add((nx, y+1))
+                        
                 return True
+                
             elif self.grid[y + 1, x] == WATER and self.water_levels[y + 1, x] < 1.0:
                 # Water cell below with space
                 available_space = 1.0 - self.water_levels[y + 1, x]
-                flow_amount = min(remaining_water, available_space)
+                # Flow more water when the difference is large
+                flow_rate = min(available_space, remaining_water)
+                flow_amount = min(flow_rate, 0.8 * remaining_water) # Limit flow rate
+                
                 new_water_levels[y + 1, x] += flow_amount
                 remaining_water -= flow_amount
                 water_moved = flow_amount > 0.001
+                
+                # Update active cells
+                newly_active_cells.add((x, y+1))
+                
                 if remaining_water <= 0:
                     new_water_levels[y, x] = 0
                     return water_moved
         
-        # If we couldn't flow down completely, try to flow sideways
+        # For horizontal flow, we use a faster equalization method
         # Check both left and right
         can_flow_left = x > 0 and self.grid[y, x - 1] != SOLID
         can_flow_right = x < self.width - 1 and self.grid[y, x + 1] != SOLID
+        
+        # Horizontal flow - spread water to create realistic pooling behavior
+        horizontal_flow = False
         
         if can_flow_left and can_flow_right:
             # Try to equalize between three cells (current, left, right)
             left_water = self.water_levels[y, x - 1] if self.grid[y, x - 1] == WATER else 0
             right_water = self.water_levels[y, x + 1] if self.grid[y, x + 1] == WATER else 0
             
-            total_water = remaining_water + left_water + right_water
-            avg_water = total_water / 3.0
-            
-            # Set left cell
-            flow_to_left = max(0, avg_water - left_water)
-            if flow_to_left > 0.001:
-                new_grid[y, x - 1] = WATER
-                new_water_levels[y, x - 1] = min(1.0, left_water + flow_to_left)
-                remaining_water -= flow_to_left
-                water_moved = True
-            
-            # Set right cell
-            flow_to_right = max(0, avg_water - right_water)
-            if flow_to_right > 0.001:
-                new_grid[y, x + 1] = WATER
-                new_water_levels[y, x + 1] = min(1.0, right_water + flow_to_right)
-                remaining_water -= flow_to_right
-                water_moved = True
+            # Only flow if there's a significant difference
+            if abs(left_water - remaining_water) > 0.05 or abs(right_water - remaining_water) > 0.05:
+                total_water = remaining_water + left_water + right_water
+                avg_water = total_water / 3.0
                 
+                # Set left cell with smoother flow rate
+                flow_to_left = max(0, avg_water - left_water)
+                if flow_to_left > 0.001:
+                    new_grid[y, x - 1] = WATER
+                    new_water_levels[y, x - 1] = min(1.0, left_water + flow_to_left * 0.8)
+                    remaining_water -= flow_to_left * 0.8
+                    water_moved = True
+                    horizontal_flow = True
+                    newly_active_cells.add((x-1, y))
+                
+                # Set right cell with smoother flow rate
+                flow_to_right = max(0, avg_water - right_water)
+                if flow_to_right > 0.001:
+                    new_grid[y, x + 1] = WATER
+                    new_water_levels[y, x + 1] = min(1.0, right_water + flow_to_right * 0.8)
+                    remaining_water -= flow_to_right * 0.8
+                    water_moved = True
+                    horizontal_flow = True
+                    newly_active_cells.add((x+1, y))
+                    
         elif can_flow_left:
             # Only flow left
             left_water = self.water_levels[y, x - 1] if self.grid[y, x - 1] == WATER else 0
-            if left_water < remaining_water:
-                # Try to equalize
+            
+            # Only flow if there's a significant difference
+            if remaining_water - left_water > 0.05:
+                # Try to equalize with smoother flow rate
                 avg_water = (remaining_water + left_water) / 2.0
-                flow_amount = avg_water - left_water
+                flow_amount = (avg_water - left_water) * 0.6  # Smoother flow
                 
                 if flow_amount > 0.001:
                     new_grid[y, x - 1] = WATER
                     new_water_levels[y, x - 1] = min(1.0, left_water + flow_amount)
                     remaining_water -= flow_amount
                     water_moved = True
+                    horizontal_flow = True
+                    newly_active_cells.add((x-1, y))
                 
         elif can_flow_right:
             # Only flow right
             right_water = self.water_levels[y, x + 1] if self.grid[y, x + 1] == WATER else 0
-            if right_water < remaining_water:
-                # Try to equalize
+            
+            # Only flow if there's a significant difference
+            if remaining_water - right_water > 0.05:
+                # Try to equalize with smoother flow rate
                 avg_water = (remaining_water + right_water) / 2.0
-                flow_amount = avg_water - right_water
+                flow_amount = (avg_water - right_water) * 0.6  # Smoother flow
                 
                 if flow_amount > 0.001:
                     new_grid[y, x + 1] = WATER
                     new_water_levels[y, x + 1] = min(1.0, right_water + flow_amount)
                     remaining_water -= flow_amount
                     water_moved = True
+                    horizontal_flow = True
+                    newly_active_cells.add((x+1, y))
+        
+        # If water moved horizontally, also check cells above for falling water
+        if horizontal_flow and y > 0:
+            if self.grid[y-1, x] == WATER:
+                newly_active_cells.add((x, y-1))
         
         # Update current cell with remaining water
         new_water_levels[y, x] = max(0, remaining_water)
@@ -505,6 +693,9 @@ class GridSimulation:
     
     def draw(self, screen):
         """Draw the grid-based fluid simulation on the screen"""
+        # Use vectorized drawing approach for better performance
+        water_cells = []
+        
         # Draw water cells
         for y in range(self.height):
             for x in range(self.width):
@@ -520,25 +711,18 @@ class GridSimulation:
                     b = max(0, min(255, WATER_COLOR[2] + int(20 * water_level)))
                     color = (r, g, b)
                     
-                    # Draw the water cell
-                    cell_rect = pygame.Rect(screen_x, screen_y, CELL_SIZE, CELL_SIZE)
-                    pygame.draw.rect(screen, color, cell_rect)
-                    
-                    # Draw cell outline for better visibility
-                    # Ensure outline color values are properly clamped to valid range (0-255)
-                    outline_r = max(0, min(255, r-20))
-                    outline_g = max(0, min(255, g-20))
-                    outline_b = max(0, min(255, b+20))
-                    pygame.draw.rect(screen, (outline_r, outline_g, outline_b), cell_rect, 1)
-                
-                # Optionally draw solid cells if needed
-                elif self.grid[y, x] == SOLID:
-                    screen_x = x * CELL_SIZE
-                    screen_y = y * CELL_SIZE
-                    cell_rect = pygame.Rect(screen_x, screen_y, CELL_SIZE, CELL_SIZE)
-                    # Only draw solid cells that aren't drawn by objects
-                    # Uncomment if you want to see the grid's solid cells
-                    # pygame.draw.rect(screen, (100, 100, 100), cell_rect)
+                    # Store cell for batch drawing
+                    water_cells.append((pygame.Rect(screen_x, screen_y, CELL_SIZE, CELL_SIZE), color))
+        
+        # Batch draw all water cells
+        for rect, color in water_cells:
+            pygame.draw.rect(screen, color, rect)
+            
+            # Draw cell outline for better visibility - optional, can disable for performance
+            outline_r = max(0, min(255, color[0]-10))
+            outline_g = max(0, min(255, color[1]-10))
+            outline_b = max(0, min(255, color[2]+10))
+            pygame.draw.rect(screen, (outline_r, outline_g, outline_b), rect, 1)
 
 class SPHParticle(Particle):
     """Particle using Smoothed Particle Hydrodynamics for more realistic fluid simulation"""
@@ -550,16 +734,33 @@ class SPHParticle(Particle):
         # Damping to control excessive bouncing
         self.restitution = 0.3  # Lower value than RESTITUTION constant
         self.max_velocity = 100.0  # Cap velocity to prevent extreme speeds
+        # Neighbor search optimization
+        self.cell_x = 0
+        self.cell_y = 0
+        self.last_density_calc_time = 0
         
     def calculate_density_and_pressure(self, particles):
         """Calculate particle density and pressure based on neighboring particles"""
         self.density = 0
         self.neighbors = []
         
+        # Spatial partitioning: Only search nearby particles
+        cell_size = SMOOTHING_LENGTH
+        self.cell_x = int(self.position.x / cell_size)
+        self.cell_y = int(self.position.y / cell_size)
+        
         # Find neighbors and calculate density
         for particle in particles:
             # Skip self
             if particle is self:
+                continue
+                
+            # Quick distance check before detailed calculation
+            dx = abs(self.position.x - particle.position.x)
+            dy = abs(self.position.y - particle.position.y)
+            
+            # Early rejection test (square bounding box)
+            if dx > SMOOTHING_LENGTH or dy > SMOOTHING_LENGTH:
                 continue
                 
             # Calculate distance
@@ -574,9 +775,16 @@ class SPHParticle(Particle):
                 if distance < 0.0001:
                     continue
                 
-                # Calculate density contribution
-                h_minus_r = SMOOTHING_LENGTH - distance
-                self.density += MASS * (315.0 / (64.0 * math.pi * math.pow(SMOOTHING_LENGTH, 9))) * math.pow(h_minus_r, 3)
+                # Calculate density contribution using more accurate Poly6 kernel
+                h2 = SMOOTHING_LENGTH_SQ
+                r2 = distance_squared
+                # Optimized kernel calculation
+                kernel_value = max(0, h2 - r2)
+                kernel_value = kernel_value * kernel_value * kernel_value
+                self.density += MASS * 315.0 / (64.0 * math.pi * math.pow(SMOOTHING_LENGTH, 9)) * kernel_value
+        
+        # Add self-density to ensure non-zero density
+        self.density = max(1.0, self.density + 0.000001)
         
         # Calculate pressure (follows ideal gas law)
         self.pressure = GAS_CONSTANT * (self.density - REST_DENSITY)
@@ -594,6 +802,11 @@ class SPHParticle(Particle):
         pressure_force = Vector2D(0, 0)
         viscosity_force = Vector2D(0, 0)
         surface_tension_force = Vector2D(0, 0)
+        cohesion_force = Vector2D(0, 0)  # New cohesion force for better clustering
+        
+        # Center of mass for cohesion calculation
+        center_of_mass = Vector2D(0, 0)
+        total_mass = 0
         
         # Calculate forces from neighbors
         for neighbor in self.neighbors:
@@ -612,23 +825,42 @@ class SPHParticle(Particle):
             # Normalize direction
             direction = direction / distance
             
-            # Calculate pressure force (using Spiky kernel)
+            # Calculate pressure force (using Spiky kernel for better pressure gradients)
             h_minus_r = SMOOTHING_LENGTH - distance
             pressure_magnitude = -MASS * (self.pressure + neighbor.pressure) / (2 * neighbor.density) 
             pressure_magnitude *= (45.0 / (math.pi * math.pow(SMOOTHING_LENGTH, 6))) * math.pow(h_minus_r, 2)
-            # Scale down pressure force for stability
-            pressure_magnitude *= 0.5
+            
+            # Scale down pressure force for stability but increase effect for clustered particles
+            scale_factor = 0.5 * (1.0 + 0.5 * min(1.0, len(self.neighbors) / 20.0))
+            pressure_magnitude *= scale_factor
+            
             pressure_force = pressure_force + direction * pressure_magnitude
             
-            # Calculate viscosity force (using Viscosity kernel)
+            # Calculate viscosity force (using Viscosity kernel) - helps particles move together
             relative_velocity = neighbor.velocity - self.velocity
             viscosity_magnitude = VISCOSITY_STRENGTH * MASS * h_minus_r / neighbor.density
             viscosity_magnitude *= (45.0 / (math.pi * math.pow(SMOOTHING_LENGTH, 6)))
             viscosity_force = viscosity_force + relative_velocity * viscosity_magnitude
             
-            # Surface tension (simplified)
-            if distance < SMOOTHING_LENGTH * 0.5:
-                surface_tension_force = surface_tension_force + direction * (SURFACE_TENSION * 0.5)  # Reduced strength
+            # Surface tension (simplified) - creates water droplet effect
+            surface_kernel = 1.0 - distance / SMOOTHING_LENGTH
+            surface_kernel = surface_kernel * surface_kernel * surface_kernel
+            surface_tension_force = surface_tension_force + direction * (SURFACE_TENSION * surface_kernel * 0.5)
+            
+            # Cohesion - attracts particles together for better clustering
+            center_of_mass = center_of_mass + neighbor.position
+            total_mass += 1
+            
+        # Apply cohesion force if we have neighbors
+        if total_mass > 0:
+            center_of_mass = center_of_mass / total_mass
+            cohesion_direction = center_of_mass - self.position
+            cohesion_distance = cohesion_direction.length()
+            if cohesion_distance > 0.0001:
+                cohesion_direction = cohesion_direction / cohesion_distance
+                # Stronger cohesion when we have fewer neighbors to keep small groups together
+                cohesion_strength = 3.0 * max(0, 1.0 - len(self.neighbors) / 30.0)
+                cohesion_force = cohesion_direction * cohesion_strength
         
         # Apply calculated forces with clamping to prevent extreme accelerations
         self.apply_force(Vector2D(
@@ -637,6 +869,7 @@ class SPHParticle(Particle):
         ))
         self.apply_force(viscosity_force)
         self.apply_force(surface_tension_force)
+        self.apply_force(cohesion_force)
     
     def update(self, dt, objects):
         """Update particle using SPH forces"""
@@ -650,6 +883,11 @@ class SPHParticle(Particle):
         velocity_length = self.velocity.length()
         if velocity_length > self.max_velocity:
             self.velocity = self.velocity * (self.max_velocity / velocity_length)
+        
+        # Add small random jitter to prevent particles from getting stuck
+        if velocity_length < 2.0 and random.random() < 0.05:
+            jitter = Vector2D(random.uniform(-0.5, 0.5), random.uniform(-0.5, 0.5))
+            self.velocity = self.velocity + jitter
         
         # Handle boundary collisions with custom restitution
         if self.position.x < self.radius:
