@@ -3,30 +3,30 @@ import threading
 import customtkinter as ctk
 from serial.serialutil import SerialException
 
-# COM port and baud rate settings
+
 ser = serial.Serial('COM4', baudrate=115200, timeout=1)
 
 def receive_from_pi():
-    """Receive data from Raspberry Pi."""
+    """Take every message from raspberry pi."""
     while True:
         try:
-            if ser.in_waiting > 0:  # Is there incoming data?
+            if ser.in_waiting > 0:  
                 message = ser.readline().decode('utf-8').strip()
-                received_text_area.insert(ctk.END, f"Received from Raspberry Pi: {message}\n")
+                received_text_area.insert(ctk.END, f"Taken from Raspberry Pi: {message}\n")
                 received_text_area.yview(ctk.END)
         except SerialException as e:
             print(f"SerialException: {e}")
             break
 
 def send_message():
-    """Send message."""
+    """Send utf-8 (turkish include) formated texts."""
     message = entry.get()
-    ser.write(message.encode('utf-8'))  # Send message
-    sent_text_area.insert(ctk.END, f"Sent: {message}\n")
+    ser.write(message.encode('utf-8'))  
+    sent_text_area.insert(ctk.END, f"Sented: {message}\n")
     sent_text_area.yview(ctk.END)
     entry.delete(0, ctk.END)
 
-# customtkinter interface
+
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
@@ -54,11 +54,11 @@ entry.pack(side=ctk.LEFT, padx=10, pady=10)
 send_button = ctk.CTkButton(frame, text="Send", command=send_message)
 send_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-# Start receiving data in a separate thread
+
 receive_thread = threading.Thread(target=receive_from_pi, daemon=True)
 receive_thread.start()
 
 root.mainloop()
 
-# Close serial port when the program exits
+
 ser.close()
