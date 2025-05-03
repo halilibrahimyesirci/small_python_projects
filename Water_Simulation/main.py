@@ -45,6 +45,66 @@ class Button:
         return False
 
 
+class Slider:
+    """Slider UI element for adjusting values"""
+    def __init__(self, x, y, width, height, min_value, max_value, current_value, label, callback):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.handle_width = 12
+        self.handle_rect = pygame.Rect(0, y, self.handle_width, height)
+        self.min_value = min_value
+        self.max_value = max_value
+        self.value = current_value
+        self.label = label
+        self.callback = callback
+        self.active = False
+        self.update_handle_position()
+        
+    def update_handle_position(self):
+        """Update handle position based on current value"""
+        normalized_value = (self.value - self.min_value) / (self.max_value - self.min_value)
+        handle_x = self.rect.x + int(normalized_value * (self.rect.width - self.handle_width))
+        self.handle_rect.x = handle_x
+    
+    def update_value_from_position(self, mouse_x):
+        """Update value based on handle position"""
+        relative_x = max(0, min(mouse_x - self.rect.x, self.rect.width - self.handle_width))
+        normalized_value = relative_x / (self.rect.width - self.handle_width)
+        self.value = self.min_value + normalized_value * (self.max_value - self.min_value)
+        self.update_handle_position()
+        if self.callback:
+            self.callback(self.value)
+    
+    def handle_event(self, event):
+        """Handle mouse events for the slider"""
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.handle_rect.collidepoint(event.pos):
+                self.active = True
+                return True
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self.active:
+                self.active = False
+                return True
+        elif event.type == pygame.MOUSEMOTION:
+            if self.active:
+                self.update_value_from_position(event.pos[0])
+                return True
+        return False
+    
+    def draw(self, surface, font):
+        # Draw slider background
+        pygame.draw.rect(surface, BUTTON_COLOR, self.rect)
+        pygame.draw.rect(surface, UI_COLOR, self.rect, 1)
+        
+        # Draw handle
+        pygame.draw.rect(surface, BUTTON_HOVER_COLOR if self.active else UI_COLOR, self.handle_rect)
+        
+        # Draw label and value
+        value_text = f"{self.label}: {self.value:.2f}" if isinstance(self.value, float) else f"{self.label}: {self.value}"
+        text_surf = font.render(value_text, True, BUTTON_TEXT_COLOR)
+        text_rect = text_surf.get_rect(midleft=(self.rect.x + self.rect.width + 10, self.rect.centery))
+        surface.blit(text_surf, text_rect)
+
+
 class WaterSimulation:
     """Main water simulation class"""
     def __init__(self):
@@ -94,6 +154,11 @@ class WaterSimulation:
         
         # Debug mode
         self.debug_mode = False
+        
+        # Initialize simulation buttons and sliders
+        self.simulation_buttons = []
+        self.simulation_sliders = []
+        self.show_settings_panel = False
         
     def create_menu_buttons(self):
         """Create buttons for the main menu"""
@@ -192,6 +257,7 @@ class WaterSimulation:
     def create_simulation_buttons(self):
         """Create buttons for the simulation interface"""
         self.simulation_buttons = []
+        self.simulation_sliders = []
         
         # Button dimensions
         button_width = 100
@@ -225,7 +291,78 @@ class WaterSimulation:
             "Debug: Off",
             self.toggle_debug_mode
         ))
-    
+        
+        # Settings button (opens/closes settings panel)
+        button_x += button_width + button_margin
+        self.simulation_buttons.append(Button(
+            button_x, button_y,
+            button_width, button_height,
+            "Settings",
+            self.toggle_settings_panel
+        ))
+        
+        # Create sliders for settings
+        self.create_settings_sliders()
+        
+    def create_settings_sliders(self):
+        """Create sliders for simulation settings"""
+        slider_width = 150
+        slider_height = 20
+        slider_margin = 10
+        slider_x = WIDTH - slider_width - 200
+        slider_y = 60  # Start below the top UI panel
+        
+        # Simulation speed slider
+        self.simulation_sliders.append(Slider(
+            slider_x, slider_y,
+            slider_width, slider_height,
+            0.2, 3.0, self.sim_speed,
+            "Speed",
+            self.set_simulation_speed
+        ))
+        
+        # Particle count / water rate slider
+        slider_y += slider_height + slider_margin
+        self.simulation_sliders.append(Slider(
+            slider_x, slider_y,
+            slider_width, slider_height,
+            1, 50, self.water_release_rate,
+            "Water Amount",
+            self.set_water_release_rate
+        ))
+        
+        # Particle size slider (affects visual size)
+        slider_y += slider_height + slider_margin
+        self.simulation_sliders.append(Slider(
+            slider_x, slider_y,
+            slider_width, slider_height,
+            1.0, 10.0, self.particle_size,
+            "Particle Size",
+            self.set_particle_size
+        ))
+        
+        # Initialize settings panel visibility
+        self.show_settings_panel = False
+        
+    def toggle_settings_panel(self):
+        """Toggle settings panel visibility"""
+        self.show_settings_panel = not self.show_settings_panel
+        
+    def set_simulation_speed(self, value):
+        """Set simulation speed multiplier"""
+        self.sim_speed = value
+        
+    def set_water_release_rate(self, value):
+        """Set number of particles to release per click/interval"""
+        self.water_release_rate = int(value)
+        
+    def set_particle_size(self, value):
+        """Set visual size of particles"""
+        self.particle_size = value
+        # Update existing particle sizes
+        for particle in self.particles:
+            particle.radius = value
+        
     def set_scene(self, scene_name):
         """Set the current scene"""
         self.scene_name = scene_name
@@ -274,9 +411,25 @@ class WaterSimulation:
     
     def add_water(self, x, y):
         """Add water at the specified position"""
+        # Don't add water if settings panel is open and mouse is over it
+        if self.show_settings_panel:
+            # Calculate settings panel area
+            panel_width = 400
+            panel_height = len(self.simulation_sliders) * 30 + 50
+            panel_x = WIDTH - panel_width - 20
+            panel_y = 50
+            
+            # Create a rect for the settings panel
+            settings_panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+            
+            # If mouse position is inside the settings panel, don't add water
+            if settings_panel_rect.collidepoint(x, y):
+                return
+        
+        # Normal water addition logic
         if time.time() - self.last_water_add_time < self.water_add_delay:
             return
-            
+                
         self.last_water_add_time = time.time()
         
         if self.sim_type == SIM_PARTICLE:
@@ -407,6 +560,28 @@ class WaterSimulation:
             button.check_hover(mouse_pos)
             button.draw(self.screen, self.font_small)
         
+        # Draw settings panel if visible
+        if self.show_settings_panel:
+            # Panel background
+            panel_width = 400
+            panel_height = len(self.simulation_sliders) * 30 + 50
+            panel_x = WIDTH - panel_width - 20
+            panel_y = 50
+            
+            settings_panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+            settings_panel.fill((30, 30, 40, 220))  # Semi-transparent panel
+            self.screen.blit(settings_panel, (panel_x, panel_y))
+            
+            # Panel title
+            title_text = self.font_medium.render("Settings", True, UI_COLOR)
+            title_rect = title_text.get_rect(midtop=(panel_x + panel_width//2, panel_y + 10))
+            self.screen.blit(title_text, title_rect)
+            
+            # Draw sliders
+            y_offset = 50
+            for slider in self.simulation_sliders:
+                slider.draw(self.screen, self.font_small)
+        
         # Draw stats
         stats_text = f"FPS: {int(self.fps)}"
         if self.sim_type == SIM_PARTICLE or self.sim_type == SIM_SPH:
@@ -487,10 +662,20 @@ class WaterSimulation:
                             mouse_x, mouse_y = pygame.mouse.get_pos()
                             self.add_water(mouse_x, mouse_y)
                             self.mouse_down = True
+                        
+                        # Check sliders
+                        for slider in self.simulation_sliders:
+                            slider.handle_event(event)
                 
             if event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:  # Left click release
                     self.mouse_down = False
+                    for slider in self.simulation_sliders:
+                        slider.handle_event(event)
+            
+            if event.type == pygame.MOUSEMOTION:
+                for slider in self.simulation_sliders:
+                    slider.handle_event(event)
         
         return True
     
