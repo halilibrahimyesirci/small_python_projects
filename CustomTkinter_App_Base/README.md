@@ -2,8 +2,6 @@
 
 A professionally structured desktop application template built with the CustomTkinter library, providing a robust foundation for Python GUI development with a modern look and feel.
 
-![Application Preview](assets/app_preview.png)
-
 ## Features
 
 ### Modern User Interface
