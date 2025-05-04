@@ -3,7 +3,7 @@ import math
 from typing import Dict, Tuple, Optional, List, Any
 import sys
 
-from .base_entity import GameEntity
+from .base_entity import BaseEntity
 
 sys.path.append("../../config")
 try:
@@ -22,7 +22,7 @@ except ImportError:
             "boss": {"speed": 2, "points": 50, "behavior": "chase_player", "health": 3}
         }
 
-class TargetEntity(GameEntity):
+class TargetEntity(BaseEntity):
     
     def __init__(self, 
                  target_type: str = "standard",
@@ -41,11 +41,11 @@ class TargetEntity(GameEntity):
         self.points = int(self.config["points"] * DIFFICULTY_LEVELS[difficulty]["score_multiplier"] * (1 + (level - 1) * 0.05))
         
         super().__init__(
+            entity_type="target",
             title=TARGET_WINDOW_TITLE,
             size=TARGET_WINDOW_SIZE,
             color=color,
-            shape_type=shape,
-            is_player=False,
+            shape=shape,
             parent=parent
         )
         
@@ -56,7 +56,7 @@ class TargetEntity(GameEntity):
             self.size = (TARGET_WINDOW_SIZE[0] * 1.5, TARGET_WINDOW_SIZE[1] * 1.5)
             self.window.geometry(f"{int(self.size[0])}x{int(self.size[1])}")
             self.canvas.config(width=self.size[0], height=self.size[1])
-            self.create_shape()
+            self.draw_shape()  # Changed from create_shape to draw_shape
         else:
             self.health = 1
             
@@ -79,18 +79,33 @@ class TargetEntity(GameEntity):
             self.set_velocity(0, 0)
             
     def _set_animations(self):
+        # Animation parameters for the BaseEntity class
+        frames = 2  # Number of animation frames
+        speed = 0.3  # Animation speed in seconds
+        loop = True  # Whether to loop the animation
+        
         if self.target_type == "standard":
-            self.start_animation('pulse')
+            # Simple pulse animation
+            frames = 2
+            speed = 0.5
             
         elif self.target_type == "moving":
-            self.start_animation('rotate')
+            # Rotation animation
+            frames = 4
+            speed = 0.2
             
         elif self.target_type == "evasive":
-            self.animation_frames = 15
-            self.start_animation('pulse')
+            # Faster pulse animation
+            frames = 2
+            speed = 0.15
             
         elif self.target_type == "boss":
-            self.start_animation('color_shift')
+            # Color shifting animation
+            frames = 3
+            speed = 0.3
+            
+        # Start the animation with proper numeric parameters
+        self.start_animation(frames, speed, loop)
             
     def update(self, delta_time: float, player_pos: Optional[Tuple[float, float]] = None):
         super().update(delta_time)
@@ -117,7 +132,7 @@ class TargetEntity(GameEntity):
             
         pos = self.get_position()
         size = self.get_size()
-        vx, vy = self.velocity
+        vx, vy = self.velocity_x, self.velocity_y
         
         if pos[0] <= 0 and vx < 0:
             self.set_velocity(-vx, vy)
@@ -173,19 +188,14 @@ class TargetEntity(GameEntity):
         return self.health <= 0
         
     def _flash_damage(self):
-        original_color = self.current_color
+        original_color = self.color  # Use self.color instead of self.current_color
         
-        self.current_color = "white"
-        if self.shape_id:
-            self.canvas.itemconfig(self.shape_id, fill=self.current_color)
-        self.window.update()
-        
-        self.window.after(100, lambda: self._reset_color(original_color))
+        # Use the BaseEntity's flash effect method instead
+        self.start_flash_effect(0.1, 3, "white")
         
     def _reset_color(self, color):
-        self.current_color = color
-        if self.shape_id:
-            self.canvas.itemconfig(self.shape_id, fill=self.current_color)
+        self.color = color
+        self.update_appearance()
             
     def get_points(self) -> int:
         return self.points
