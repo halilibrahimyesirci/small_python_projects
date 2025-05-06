@@ -156,103 +156,204 @@ Clicker_Game/
     └── sounds/             # For sound effects
 ```
 
-### Version 0.3 (Major Planned Enhancement) - Target: May 2025
+### Version 0.3 (Major Architecture & RPG Elements) - 2025-05-06
 
-Building on the foundation of V0.2, Version 0.3 will focus on implementing core RPG elements, modularizing the codebase, and introducing a proper upgrade system.
+#### Implementation Overview
 
-#### Major Development Goals
+Version 0.3 represents a complete architectural overhaul of the game, transforming it from a monolithic structure to a fully modular, object-oriented design. This version implements core RPG elements, enhances visual feedback, introduces boss battles, and adds persistent player progression.
 
-**1. Code Architecture & Structure (Major Overhaul)**
-* **Modular File Structure:**
-  * Separate main.py into logical modules:
-    * `engine.py` - Core game loop and state management
-    * `ui.py` - UI rendering and components
-    * `player.py` - Player stats and progression
-    * `levels.py` - Level generation and management
-  * Implement proper class hierarchy
-  * Create proper resource management system
-* **Configuration System:**
-  * Move constants to config files
-  * Allow for easier balancing and tweaking
+#### Major Features Implemented
 
-**2. RPG Elements & Progression (Primary Focus)**
-* **Stats & Upgrade System:**
-  * Implement at least 3 core stats:
-    * Click Power (clicks per click)
-    * Critical Click Chance
-    * Critical Click Multiplier
-  * Create upgrade screen accessible between levels
-  * Award upgrade points for level completion
-  * Visual representation of current stats
-* **Persistent Progress:**
-  * Basic save/load functionality
-  * Remember highest level reached
+**1. Complete Code Architecture Overhaul**
+* **Modular Structure:** Fully refactored codebase into separate modules:
+  * `engine.py` - Core game loop and state management
+  * `player.py` - Player stats, persistence, and upgrades
+  * `levels.py` - Level generation and boss mechanics
+  * `ui.py` - Reusable UI components 
+  * `utils/helpers.py` - Resource management and utilities
+* **Configuration System:** 
+  * JSON-based game configuration for easy balancing
+  * Default configuration with fallbacks
+* **Enhanced Entry Point:**
+  * Robust error handling in `main.py`
+  * Proper Python package structure with `__init__.py` files
 
-**3. Enhanced Gameplay Features**
+**2. Advanced RPG Systems**
+* **Persistent Player Progress:**
+  * Save/load functionality for player stats and level
+  * Keeps track of highest level reached
+* **Upgrade System:**
+  * Three upgradable stats: Click Power, Critical Chance, Critical Multiplier
+  * Visual indication of max levels and current values
+  * Upgrade points awarded for level completion
+  * Dedicated upgrade screen between levels
+* **Boss Battle System:**
+  * Special boss levels every 5 levels
+  * Bosses with unique names, higher difficulty, and special abilities
+  * Three boss abilities implemented: moving button, click blocking, time warping
+  * Visual boss health tracking
+  * Boss ability warnings
+
+**3. Enhanced Gameplay Mechanics**
 * **Combo System:**
-  * Track consecutive clicks within a time window
-  * Provide bonus for maintaining combos
-  * Visual indicator for current combo
-* **Basic Boss Level:**
-  * Every 5th level is a boss level
-  * Higher click target
-  * Simple boss mechanic (moving target, periodic target freezing, etc.)
-  * Visual distinction for boss levels
+  * Tracks consecutive clicks within time window
+  * Provides increasing bonuses for maintaining combos
+  * Visual indicator shows current combo and bonus
+* **Enhanced Critical Click System:**
+  * Critical hit chance and multiplier are now upgradable
+  * Integrated with combo system for multiplicative bonuses
+  * Enhanced visual and audio feedback
+* **Expanded Feedback Systems:**
+  * Particle effects for clicks and critical hits
+  * Animated floating text showing click values
+  * Progress bar showing level completion or boss health
 
-**4. Improved Visual Elements**
-* **Game Assets:**
-  * Custom background image
-  * Themed button designs
-  * Click effect animations (beyond text)
-* **UI Improvements:**
-  * Proper menu screen
-  * Progress bar for clicks/target
-  * Visual countdown for timer
-  * Improved layout with defined UI regions
+**4. Advanced UI Components**
+* **Reusable UI Classes:**
+  * Button - Interactive button with hover and click states
+  * ProgressBar - Animated progress display
+  * ComboMeter - Visual combo tracking
+  * ParticleSystem - Manages visual effects
+  * TextParticle - Animated floating text
+  * ClickParticle - Particle effects for clicks
+* **Game State Screens:**
+  * Menu screen with game information
+  * Playing screen with level information and UI
+  * Win/lose screens with level summary
+  * Upgrade screen with stat management
+  * Pause screen with resume/quit options
+* **Debug Mode:**
+  * Toggleable with F3 key
+  * Shows FPS, game state, and player stats
 
-**5. Audio Integration**
-* **Sound Effects:**
-  * Click sounds (normal and critical)
-  * Level up/completion sound
-  * Boss appearance sound
-  * Game over sounds
-* **Background Music:**
-  * Menu music
-  * Gameplay music
-  * Volume controls
+**5. Technical Features**
+* **Comprehensive Logging:**
+  * Detailed event logging to file
+  * Error handling with appropriate logging
+* **Resource Management:**
+  * Centralized loading of images, sounds, and music
+  * Graceful fallbacks when assets are missing
+* **Improved Game Loop:**
+  * Fixed timestep
+  * State-specific update and render methods
+  * Clean event handling
 
-**6. Quality of Life Features**
-* **Basic Settings Menu:**
-  * Toggle sound effects/music
-  * Simple control options
-* **Pause Functionality:**
-  * Ability to pause during gameplay
-  * Resume or quit options
-
-#### Architectural Plan for V0.3
-
-The new folder structure will enable more organized and maintainable code:
-
+#### Current Folder Structure
 ```
 Clicker_Game/
-├── src/                    # Source code directory
-│   ├── __init__.py         # Package initialization
-│   ├── main.py             # Entry point and main loop
-│   ├── engine.py           # Game engine and state management
-│   ├── player.py           # Player stats and progression
-│   ├── ui.py               # UI components and rendering
-│   ├── levels.py           # Level generation and management
-│   └── utils/              # Utility functions
-│       ├── __init__.py
-│       └── helpers.py      # Helper functions
-├── assets/                 # Game assets
+├── main.py                 # Entry point with error handling
+├── smallprojects.md        # Development documentation
+├── assets/                 # Game assets folder
 │   ├── images/             # Graphics and sprites
 │   ├── sounds/             # Sound effects
 │   └── music/              # Background music
 ├── config/                 # Configuration files
-│   └── game_config.json    # Game parameters and constants
-└── data/                   # Game data storage
-    └── save_data.json      # Player save data
+│   └── game_config.json    # Created automatically
+├── data/                   # Game data storage
+│   └── save_data.json      # Created automatically
+└── src/                    # Source code modules
+    ├── __init__.py         # Package initialization
+    ├── engine.py           # Game engine and state management
+    ├── player.py           # Player stats and progression
+    ├── levels.py           # Level generation and management
+    ├── ui.py               # UI components and rendering
+    └── utils/              # Utility functions
+        ├── __init__.py
+        └── helpers.py      # Resource management
 ```
 
-This refactoring will dramatically improve code maintainability and set the foundation for future enhancements in V0.4 and beyond.
+### Version 0.4 (Planned Enhancements) - Target: June 2025
+
+Building on the solid foundation of V0.3, Version 0.4 will focus on enhancing content depth, adding active skills, improving visuals, and implementing quality-of-life features.
+
+#### Major Development Goals
+
+**1. Active Skills System**
+* **Active Skill Implementation:**
+  * Implement 3-4 active skills with cooldowns and effects:
+    * Auto-Clicker: Clicks automatically for a duration
+    * Time Slowdown: Slows the timer for a duration
+    * Critical Boost: Increases critical chance for a duration
+    * Combo Extender: Extends combo decay time
+  * Create dedicated UI for skill selection and cooldown display
+  * Add skill hotkeys (number keys)
+* **Skill Point System:**
+  * Add skill points separate from upgrade points
+  * Create skill tree or skill level progression
+
+**2. Enhanced Visual Assets**
+* **Custom Art:**
+  * Create themed background images for different game sections
+  * Design custom button and UI element graphics
+  * Develop boss character images with unique appearances
+* **Animation Enhancements:**
+  * Improve particle effects with more variety
+  * Add screen transition animations between states
+  * Implement button animation effects
+* **UI Polish:**
+  * Create cohesive color scheme and theme
+  * Design custom fonts or styling
+  * Improve layout and information organization
+
+**3. Story and Content Depth**
+* **Narrative Elements:**
+  * Add short story snippets for level progression
+  * Create backstories for boss characters
+  * Implement a simple overarching plot
+* **Varied Level Types:**
+  * Add different objective types beyond click targets
+  * Implement special challenge levels
+  * Create branching path options after boss defeats
+
+**4. Audio System Enhancements**
+* **Complete Sound Effects:**
+  * Multiple click sound variations
+  * UI interaction sounds
+  * Level completion fanfare
+  * Boss-specific sound effects
+* **Music Integration:**
+  * Menu music
+  * Normal gameplay music
+  * Boss battle music
+  * Victory/defeat themes
+* **Audio Controls:**
+  * Volume sliders for music and SFX
+  * Mute options
+
+**5. Quality of Life Features**
+* **Settings System:**
+  * Create settings menu
+  * Add graphics options (window size, fullscreen)
+  * Implement control customization
+* **Statistics Tracking:**
+  * Track and display gameplay statistics
+  * Add achievements system
+  * Create performance metrics
+* **Save System Improvements:**
+  * Multiple save slots
+  * Automatic saving
+  * Save data backup
+
+**6. Additional Gameplay Features**
+* **Mini-Games:**
+  * Add optional mini-games for bonus rewards
+  * Implement alternative clicking challenges
+* **Daily Challenges:**
+  * Create rotating daily objectives
+  * Award special rewards for completion
+* **Prestige System:**
+  * Allow restarting with permanent bonuses after reaching high levels
+  * Create meta-progression system
+
+#### Technical Improvements
+* **Performance Optimization:**
+  * Profile and optimize rendering
+  * Improve asset loading
+* **Documentation:**
+  * Create comprehensive code documentation
+  * Add tooltips and help system for players
+* **Testing:**
+  * Implement automated tests for game mechanics
+  * Add debug commands for testing
+
+This ambitious plan for V0.4 will significantly enhance the depth, polish, and replayability of the game while building on the solid architectural foundation established in V0.3.
