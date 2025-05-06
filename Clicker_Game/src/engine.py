@@ -4,6 +4,7 @@ import time
 import random
 import logging
 import os
+import math
 
 # Game states
 STATE_MENU = "MENU"
@@ -12,6 +13,9 @@ STATE_GAME_OVER_WIN = "GAME_OVER_WIN"
 STATE_GAME_OVER_LOSE = "GAME_OVER_LOSE"
 STATE_UPGRADE = "UPGRADE"
 STATE_PAUSE = "PAUSE"
+
+# State transition duration in seconds
+TRANSITION_DURATION = 0.3
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,7 @@ class GameEngine:
         
         # Create screen and clock
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("RPG Clicker V0.3")
+        pygame.display.set_caption("RPG Clicker V0.3.1")
         self.clock = pygame.time.Clock()
         
         # Create fonts
@@ -51,6 +55,9 @@ class GameEngine:
             "red": (255, 0, 0),
             "green": (0, 255, 0),
             "blue": (0, 100, 255),
+            "yellow": (255, 255, 0),  # Make sure yellow is defined for critical hits
+            "orange": (255, 165, 0),
+            "purple": (128, 0, 128),
             "button": {
                 "normal": (100, 100, 255),
                 "hover": (150, 150, 255),
@@ -63,10 +70,23 @@ class GameEngine:
         # Game variables
         self.running = True
         self.game_state = STATE_MENU
+        self.previous_state = None
         self.clicks = 0
         self.start_ticks = 0
         self.current_time = 0
         self.debug_mode = False
+        
+        # FPS monitoring
+        self.fps_history = []
+        self.fps_history_max_size = 60  # Track FPS over 60 frames
+        
+        # State transition variables
+        self.transitioning = False
+        self.transition_start_time = 0
+        self.transition_progress = 0
+        self.transition_from_state = None
+        self.transition_to_state = None
+        self.transition_surface = None
         
         # Load resources
         self._load_resources()
@@ -77,6 +97,9 @@ class GameEngine:
         # UI initialization will be done in the respective state functions
         self.ui_elements = {}
         self._init_ui()
+        
+        # Create transition surface
+        self.transition_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         
         logger.info("Game engine initialized")
         
@@ -280,6 +303,47 @@ class GameEngine:
             border_color=self.colors["red"]
         )
         
+    def _start_transition(self, to_state):
+        """Start a transition to a new state"""
+        self.transitioning = True
+        self.transition_start_time = self.current_time
+        self.transition_from_state = self.game_state
+        self.transition_to_state = to_state
+        self.transition_progress = 0
+        
+        # Create a screenshot of the current state to fade from
+        self.transition_surface.fill((0, 0, 0, 0))
+        self.transition_surface.blit(self.screen, (0, 0))
+        
+        # Actually change the state
+        self.previous_state = self.game_state
+        self.game_state = to_state
+        
+        logger.info(f"Transitioning from {self.transition_from_state} to {self.transition_to_state}")
+        
+    def _update_transition(self):
+        """Update the state transition progress"""
+        if not self.transitioning:
+            return
+            
+        # Calculate progress (0 to 1)
+        elapsed = self.current_time - self.transition_start_time
+        self.transition_progress = min(1.0, elapsed / TRANSITION_DURATION)
+        
+        # Check if transition is complete
+        if self.transition_progress >= 1.0:
+            self.transitioning = False
+            
+    def _render_transition(self):
+        """Render the state transition effect"""
+        if not self.transitioning:
+            return
+            
+        # Create a fade effect
+        alpha = int(255 * (1.0 - self.transition_progress))
+        self.transition_surface.set_alpha(alpha)
+        self.screen.blit(self.transition_surface, (0, 0))
+        
     def run(self):
         """Run the main game loop"""
         logger.info("Starting game loop")
@@ -289,14 +353,29 @@ class GameEngine:
             time_delta = self.clock.tick(self.fps) / 1000.0
             self.current_time = pygame.time.get_ticks() / 1000.0
             
+            # Track FPS history for performance monitoring
+            current_fps = self.clock.get_fps()
+            self.fps_history.append(current_fps)
+            if len(self.fps_history) > self.fps_history_max_size:
+                self.fps_history = self.fps_history[-self.fps_history_max_size:]
+            
             # Process events
             self._process_events()
+            
+            # Update transition if active
+            self._update_transition()
             
             # Update game state
             self._update(time_delta)
             
             # Render
             self._render()
+            
+            # Add transition effect if active
+            self._render_transition()
+            
+            # Update display
+            pygame.display.flip()
             
         pygame.quit()
         sys.exit()
@@ -315,7 +394,7 @@ class GameEngine:
                 
                 # Pause game with ESC during gameplay
                 if event.key == pygame.K_ESCAPE and self.game_state == STATE_PLAYING:
-                    self.game_state = STATE_PAUSE
+                    self._start_transition(STATE_PAUSE)
                     logger.info("Game paused")
                 
             # Handle mouse events in state-specific update methods
@@ -362,7 +441,7 @@ class GameEngine:
         from src.ui import display_text
         display_text(
             self.screen,
-            "V0.3",
+            "V0.3.1",
             self.fonts["small"],
             self.colors["white"],
             self.width - 40,
@@ -374,15 +453,16 @@ class GameEngine:
         if self.debug_mode:
             self._render_debug_info()
             
-        # Update display
-        pygame.display.flip()
-        
     def _render_debug_info(self):
         """Render debug information"""
         from src.ui import display_text
         
+        # Calculate average and min FPS
+        avg_fps = sum(self.fps_history) / max(1, len(self.fps_history))
+        min_fps = min(self.fps_history) if self.fps_history else 0
+        
         debug_info = [
-            f"FPS: {int(self.clock.get_fps())}",
+            f"FPS: {int(self.clock.get_fps())} (Avg: {int(avg_fps)}, Min: {int(min_fps)})",
             f"State: {self.game_state}",
             f"Level: {self.player.level}",
             f"Clicks: {self.clicks}",
@@ -390,8 +470,16 @@ class GameEngine:
             f"Click Power: {self.player.stats['click_power']['value']}",
             f"Crit Chance: {int(self.player.stats['critical_chance']['value'] * 100)}%",
             f"Crit Mult: {self.player.stats['critical_multiplier']['value']}x",
-            f"Upgrade Points: {self.player.upgrade_points}"
+            f"Upgrade Points: {self.player.upgrade_points}",
+            f"Total Clicks: {self.player.total_clicks}",
+            f"Highest Level: {self.player.highest_level}",
+            f"Memory: {pygame.display.get_surface().get_width() * pygame.display.get_surface().get_height() * 4 / (1024*1024):.2f} MB"
         ]
+        
+        # Create debug panel background
+        debug_panel = pygame.Surface((300, len(debug_info) * 20 + 10), pygame.SRCALPHA)
+        debug_panel.fill((0, 0, 0, 180))  # Semi-transparent black
+        self.screen.blit(debug_panel, (5, 5))
         
         y = 10
         for info in debug_info:
@@ -414,7 +502,7 @@ class GameEngine:
         # Update play button
         play_button = self.ui_elements[STATE_MENU]["play_button"]
         if play_button.update(mouse_pos, mouse_clicked, self.current_time):
-            self.game_state = STATE_PLAYING
+            self._start_transition(STATE_PLAYING)
             self.clicks = 0
             self.start_ticks = pygame.time.get_ticks()
             
@@ -430,14 +518,15 @@ class GameEngine:
         """Render menu state"""
         from src.ui import display_text
         
-        # Game title
+        # Game title with simple animation
+        title_y_offset = math.sin(self.current_time * 2) * 5  # Gentle float effect
         display_text(
             self.screen,
             "RPG Clicker",
             self.fonts["large"],
             self.colors["white"],
             self.width // 2,
-            self.height // 3,
+            self.height // 3 + title_y_offset,
             center=True
         )
         
@@ -529,6 +618,19 @@ class GameEngine:
             elif self.current_level.boss_ability == "click_block":
                 # Block some clicks (implemented in the button click handling below)
                 pass
+                
+            # Display active boss ability
+            from src.ui import display_text
+            ability_name = self.current_level.boss_ability.replace("_", " ").upper()
+            display_text(
+                self.screen,
+                f"BOSS ABILITY: {ability_name}",
+                self.fonts["medium"],
+                self.colors["red"],
+                self.width // 2,
+                80,
+                center=True
+            )
         
         # Check if button was clicked
         button_clicked = click_button.update(mouse_pos, mouse_pressed, self.current_time)
@@ -594,12 +696,19 @@ class GameEngine:
                 )
                 self.ui_elements[STATE_PLAYING]["particles"].add_particle(text_particle)
                 
-                # Add click particles
+                # Add click particles - more diverse particles with V0.3.1
+                particle_colors = [(255, 255, 0)] if is_critical else [
+                    (150, 150, 255), 
+                    (100, 100, 255), 
+                    (200, 200, 255)
+                ]
+                
                 for _ in range(5 if is_critical else 3):
+                    particle_color = random.choice(particle_colors)
                     particle = ClickParticle(
                         mouse_pos[0],
                         mouse_pos[1],
-                        (255, 255, 0) if is_critical else (150, 150, 255),
+                        particle_color,
                         size=3 + random.randint(0, 3),
                         speed=2 + random.random() * 2,
                         life=0.5 + random.random() * 0.5
@@ -610,7 +719,7 @@ class GameEngine:
                 if self.current_level.is_boss:
                     boss_defeated = self.current_level.damage_boss(click_value)
                     if boss_defeated:
-                        self.game_state = STATE_GAME_OVER_WIN
+                        self._start_transition(STATE_GAME_OVER_WIN)
                         self.resource_manager.play_sound("level_up")
                         logger.info(f"Boss defeated! Level {self.current_level.level_number} completed.")
                 
@@ -630,112 +739,10 @@ class GameEngine:
             # For regular levels, show progress toward click target
             progress_percent = min(1.0, self.clicks / self.current_level.click_target)
             progress_bar.set_progress(progress_percent)
-        progress_bar.update()
         
-        # Check if level is completed (for non-boss levels)
-        if not self.current_level.is_boss:
-            if self.current_level.check_completion(self.clicks, 0):
-                self.game_state = STATE_GAME_OVER_WIN
-                self.resource_manager.play_sound("level_up")
-                logger.info(f"Level {self.current_level.level_number} completed!")
-        
-        # Check if timer has expired
-        seconds_elapsed = (pygame.time.get_ticks() - self.start_ticks) / 1000
-        if seconds_elapsed >= self.current_level.timer_duration:
-            if self.current_level.check_completion(self.clicks, 0):
-                self.game_state = STATE_GAME_OVER_WIN
-                self.resource_manager.play_sound("level_up")
-                logger.info(f"Level {self.current_level.level_number} completed just in time!")
-            else:
-                self.game_state = STATE_GAME_OVER_LOSE
-                logger.info(f"Time's up! Failed level {self.current_level.level_number}.")
-                
-        # Update boss ability
-        if self.current_level.is_boss:
-            self.current_level.update_ability(seconds_elapsed, self.current_time)
-            
     def _render_playing(self):
         """Render playing state"""
         from src.ui import display_text
-        
-        # Display level info
-        level_text = self.current_level.get_description()
-        if self.current_level.is_boss:
-            display_text(
-                self.screen,
-                level_text,
-                self.fonts["large"],
-                self.colors["boss"],
-                self.width // 2,
-                20,
-                center=True
-            )
-        else:
-            display_text(
-                self.screen,
-                level_text,
-                self.fonts["large"],
-                self.colors["white"],
-                self.width // 2,
-                20,
-                center=True
-            )
-        
-        # Display clicks
-        display_text(
-            self.screen,
-            f"Clicks: {self.clicks} / {self.current_level.click_target}",
-            self.fonts["medium"],
-            self.colors["white"],
-            20,
-            20,
-            center=False
-        )
-        
-        # Display timer
-        seconds_elapsed = (pygame.time.get_ticks() - self.start_ticks) / 1000
-        seconds_remaining = max(0, self.current_level.timer_duration - seconds_elapsed)
-        
-        # Make timer red if time is running out
-        timer_color = self.colors["red"] if seconds_remaining < 5 else self.colors["white"]
-        
-        display_text(
-            self.screen,
-            f"Time: {seconds_remaining:.1f}s",
-            self.fonts["medium"],
-            timer_color,
-            self.width - 150,
-            20,
-            center=False
-        )
-        
-        # Display boss health if this is a boss level
-        if self.current_level.is_boss:
-            health_percent = self.current_level.get_health_percent()
-            boss_health_text = f"Boss Health: {int(health_percent * 100)}%"
-            
-            display_text(
-                self.screen,
-                boss_health_text,
-                self.fonts["medium"],
-                self.colors["boss"],
-                self.width // 2,
-                50,
-                center=True
-            )
-            
-            # Display boss ability warning
-            if self.current_level.ability_active:
-                ability_name = self.current_level.boss_ability.replace("_", " ").upper()
-                display_text(
-                    self.screen,
-                    f"BOSS ABILITY: {ability_name}",
-                    self.fonts["medium"],
-                    self.colors["red"],
-                    self.width // 2,
-                    80,
-                    center=True
-                )
         
         # Draw click button
         self.ui_elements[STATE_PLAYING]["click_button"].draw(self.screen)

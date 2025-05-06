@@ -1,0 +1,23 @@
+{
+    "level": 2,
+    "highest_level": 2,
+    "upgrade_points": 0,
+    "total_clicks": 50,
+    "stats": {
+        "click_power": {
+            "level": 1,
+            "value": 2,
+            "max_level": 5
+        },
+        "critical_chance": {
+            "level": 0,
+            "value": 0.1,
+            "max_level": 5
+        },
+        "critical_multiplier": {
+            "level": 0,
+            "value": 2,
+            "max_level": 5
+        }
+    }
+}

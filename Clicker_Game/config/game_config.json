@@ -1,0 +1,44 @@
+{
+    "screen": {
+        "width": 800,
+        "height": 600,
+        "fps": 60
+    },
+    "gameplay": {
+        "initial_click_target": 50,
+        "target_increment": 10,
+        "timer_duration": 30,
+        "critical_click_chance": 0.1,
+        "critical_click_value": 2
+    },
+    "upgrade_costs": {
+        "click_power": [
+            50,
+            100,
+            200,
+            400,
+            800
+        ],
+        "critical_chance": [
+            75,
+            150,
+            300,
+            600,
+            1200
+        ],
+        "critical_multiplier": [
+            100,
+            200,
+            400,
+            800,
+            1600
+        ]
+    },
+    "boss_levels": [
+        5,
+        10,
+        15,
+        20,
+        25
+    ]
+}

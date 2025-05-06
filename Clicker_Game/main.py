@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """
-RPG Clicker Game V0.3
+RPG Clicker Game V0.3.1
 A clicker-style game with RPG elements.
 """
 
@@ -29,7 +28,7 @@ try:
     
     def main():
         """Main entry point for the game"""
-        logger.info("Starting RPG Clicker V0.3")
+        logger.info("Starting RPG Clicker V0.3.1")
         
         # Initialize the resource manager
         resource_manager = ResourceManager()
