@@ -202,6 +202,9 @@ class Player:
             
         boss_levels = self.resource_manager.get_config_value("boss_levels")
         return self.level in boss_levels
+    def can_upgrade_coins(self):
+        """Check if coin drop rate can be upgraded"""
+        return self.coin_upgrade_level < self.coin_upgrade_max_level and self.upgrade_points > 0
         
     def add_passive_income(self, time_delta):
         """Add passive income based on elapsed time"""
