@@ -51,6 +51,9 @@ class GameEngine:
         pygame.display.set_caption("RPG Clicker V0.3.4")
         self.clock = pygame.time.Clock()
         
+        # ESC key tracking (bu satırı ekleyin)
+        self.last_esc_press = 0
+        
         # Create fonts
         self.fonts = {
             "large": pygame.font.SysFont(None, 50),
@@ -91,6 +94,8 @@ class GameEngine:
         self.coin_spawn_timer = 0
         self.coin_spawn_rate = 3  # Coins per second
         self.coin_counter = 0  # Money earned from coins
+        
+        
         
         # Player ability variables
         self.player_abilities = {
@@ -652,20 +657,23 @@ class GameEngine:
                 if event.key == pygame.K_F3:
                     self.debug_mode = not self.debug_mode
                     logger.info(f"Debug mode {'enabled' if self.debug_mode else 'disabled'}")
-                
-                # ESC key behavior for different states
+                    
                 if event.key == pygame.K_ESCAPE:
-                    if self.game_state == STATE_PLAYING:
-                        self._start_transition(STATE_ESC_MENU)
-                        logger.info("Game paused with ESC key")
-                    elif self.game_state == STATE_ESC_MENU:
-                        self._start_transition(STATE_PLAYING)
-                        logger.info("Game resumed with ESC key")
-                    elif self.game_state in [STATE_SETTINGS, STATE_SHOP, STATE_UPGRADE]:
-                        # Return to previous state
-                        previous_state = self.previous_state if self.previous_state else STATE_MENU
-                        self._start_transition(previous_state)
-                        logger.info(f"Returned to {previous_state} with ESC key")
+                    # ESC tuşuna en son bastığımız zamanı takip ediyoruz
+                    current_time = pygame.time.get_ticks()
+                    if current_time - self.last_esc_press > 300:  # 300ms gecikme
+                        self.last_esc_press = current_time
+                        if self.game_state == STATE_PLAYING:
+                            self._start_transition(STATE_ESC_MENU)
+                            logger.info("Game paused with ESC key")
+                        elif self.game_state == STATE_ESC_MENU:
+                            self._start_transition(STATE_PLAYING)
+                            logger.info("Game resumed via ESC key")
+                        elif self.game_state in [STATE_SETTINGS, STATE_SHOP, STATE_UPGRADE]:
+                            # Return to previous state
+                            previous_state = self.previous_state if self.previous_state else STATE_MENU
+                            self._start_transition(previous_state)
+                            logger.info(f"Returned to {previous_state} with ESC key")
                 
             # Handle mouse events in state-specific update methods
                 
