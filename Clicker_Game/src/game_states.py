@@ -942,40 +942,44 @@ def update_esc_menu(game_engine, time_delta):
             
 def render_esc_menu(game_engine):
     """Render ESC menu state"""
-    from src.ui import display_text
-    
-    # Semi-transparent overlay
+    # Önce yarı saydam bir arka plan çizerek oyunun duraklatıldığını belirtin
     overlay = pygame.Surface((game_engine.width, game_engine.height), pygame.SRCALPHA)
-    overlay.fill((0, 0, 0, 180))  # Semi-transparent black
+    overlay.fill((0, 0, 0, 128))  # Yarı saydam siyah
     game_engine.screen.blit(overlay, (0, 0))
     
-    # Display title
+    # Menü başlığını göster
     display_text(
         game_engine.screen,
-        "Game Menu",
+        "Game Paused",
         game_engine.fonts["large"],
         game_engine.colors["white"],
         game_engine.width // 2,
-        game_engine.height // 5,
+        game_engine.height // 4,
         center=True
     )
     
-    # Display current coins
-    display_text(
-        game_engine.screen,
-        f"Coins: {int(game_engine.player.coins)}",
-        game_engine.fonts["medium"],
-        game_engine.colors["gold"],
-        game_engine.width // 2,
-        game_engine.height // 5 + 50,
-        center=True
-    )
+    # Menü düğmelerini çiz
+    resume_button = game_engine.ui_elements[STATE_ESC_MENU]["resume_button"]
+    settings_button = game_engine.ui_elements[STATE_ESC_MENU]["settings_button"]
+    shop_button = game_engine.ui_elements[STATE_ESC_MENU]["shop_button"]
+    main_menu_button = game_engine.ui_elements[STATE_ESC_MENU]["main_menu_button"]
     
-    # Draw buttons
-    game_engine.ui_elements[STATE_ESC_MENU]["resume_button"].draw(game_engine.screen)
-    game_engine.ui_elements[STATE_ESC_MENU]["settings_button"].draw(game_engine.screen)
-    game_engine.ui_elements[STATE_ESC_MENU]["shop_button"].draw(game_engine.screen)
-    game_engine.ui_elements[STATE_ESC_MENU]["main_menu_button"].draw(game_engine.screen)
+    resume_button.draw(game_engine.screen)
+    settings_button.draw(game_engine.screen)
+    shop_button.draw(game_engine.screen)
+    main_menu_button.draw(game_engine.screen)
+    
+    # Debug bilgilerini göster (eğer debug modu aktifse)
+    if game_engine.debug_mode:
+        display_text(
+            game_engine.screen,
+            f"Current State: {game_engine.game_state}",
+            game_engine.fonts["small"],
+            game_engine.colors["white"],
+            10,
+            10,
+            center=False
+        )
 
 def update_shop(game_engine, time_delta):
     """Update shop state"""

@@ -51,8 +51,8 @@ class GameEngine:
         pygame.display.set_caption("RPG Clicker V0.3.4")
         self.clock = pygame.time.Clock()
         
-        # ESC key tracking (bu satırı ekleyin)
-        self.last_esc_press = 0
+        # ESC key tracking
+        self.last_esc_press = 0  # Initialize the last_esc_press attribute to track ESC key timing
         
         # Create fonts
         self.fonts = {
@@ -659,10 +659,12 @@ class GameEngine:
                     logger.info(f"Debug mode {'enabled' if self.debug_mode else 'disabled'}")
                     
                 if event.key == pygame.K_ESCAPE:
-                    # ESC tuşuna en son bastığımız zamanı takip ediyoruz
                     current_time = pygame.time.get_ticks()
-                    if current_time - self.last_esc_press > 300:  # 300ms gecikme
+                    
+                    # Add delay check to prevent immediate toggle
+                    if current_time - self.last_esc_press > 300:  # 300ms delay
                         self.last_esc_press = current_time
+                        
                         if self.game_state == STATE_PLAYING:
                             self._start_transition(STATE_ESC_MENU)
                             logger.info("Game paused with ESC key")
