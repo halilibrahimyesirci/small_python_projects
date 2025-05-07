@@ -1,8 +1,8 @@
 {
     "level": 3,
     "highest_level": 3,
-    "upgrade_points": 2,
-    "total_clicks": 116,
+    "upgrade_points": 0,
+    "total_clicks": 122,
     "stats": {
         "click_power": {
             "level": 0,
@@ -20,7 +20,7 @@
             "max_level": 10
         }
     },
-    "coin_upgrade_level": 0,
+    "coin_upgrade_level": 2,
     "coins": 0,
     "passive_income": 0,
     "coin_multiplier": 1

@@ -162,14 +162,14 @@ class GameEngine:
         level_up_path = os.path.join("assets", "sounds", "level_up.wav")
         self.resource_manager.load_sound("level_up", level_up_path)
         
-        # Try to load music
-        menu_music_path = os.path.join("assets", "music", "menu.mp3")
+        # Try to load music - using existing music files instead of missing ones
+        menu_music_path = os.path.join("assets", "music", "best_one.mp3")  # Use best_one.mp3 for menu
         self.resource_manager.load_music("menu", menu_music_path)
         
-        gameplay_music_path = os.path.join("assets", "music", "gameplay.mp3")
+        gameplay_music_path = os.path.join("assets", "music", "mid.mp3")  # Use mid.mp3 for gameplay
         self.resource_manager.load_music("gameplay", gameplay_music_path)
         
-        boss_music_path = os.path.join("assets", "music", "boss.mp3")
+        boss_music_path = os.path.join("assets", "music", "mhysteric_type.mp3")  # Use mhysteric_type.mp3 for boss
         self.resource_manager.load_music("boss", boss_music_path)
         
     def _init_ui(self):
