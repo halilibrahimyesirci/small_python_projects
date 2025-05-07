@@ -16,6 +16,10 @@ class Player:
         self.upgrade_points = 0
         self.total_clicks = 0
         
+        # Coin upgrade stats
+        self.coin_upgrade_level = 0
+        self.coin_upgrade_max_level = 5
+        
         # Upgradable stats
         self.stats = {
             "click_power": {
@@ -45,7 +49,8 @@ class Player:
             "highest_level": self.highest_level,
             "upgrade_points": self.upgrade_points,
             "total_clicks": self.total_clicks,
-            "stats": self.stats
+            "stats": self.stats,
+            "coin_upgrade_level": self.coin_upgrade_level
         }
         
         # Ensure data directory exists
@@ -78,6 +83,9 @@ class Player:
             self.total_clicks = player_data["total_clicks"]
             self.stats = player_data["stats"]
             
+            # Load coin upgrade level (default to 0 if not in save file)
+            self.coin_upgrade_level = player_data.get("coin_upgrade_level", 0)
+            
             logger.info("Player progress loaded successfully")
             return True
         except Exception as e:
@@ -90,6 +98,7 @@ class Player:
         self.highest_level = 1
         self.upgrade_points = 0
         self.total_clicks = 0
+        self.coin_upgrade_level = 0
         
         # Reset stats to initial values
         for stat in self.stats:
@@ -151,6 +160,17 @@ class Player:
             stat["value"] = 2 + stat["level"]  # 2-7x multiplier
             
         logger.info(f"Upgraded {stat_name} to level {stat['level']}")
+        return True
+    
+    def upgrade_coin_rate(self):
+        """Upgrade coin drop rate and value"""
+        if self.coin_upgrade_level >= self.coin_upgrade_max_level or self.upgrade_points <= 0:
+            return False
+            
+        self.coin_upgrade_level += 1
+        self.upgrade_points -= 1
+        
+        logger.info(f"Upgraded coin drop rate to level {self.coin_upgrade_level}")
         return True
     
     def is_boss_level(self):

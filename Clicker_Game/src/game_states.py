@@ -21,6 +21,9 @@ STATE_PAUSE = "PAUSE"
 STATE_SETTINGS = "SETTINGS"
 STATE_ABILITY_SELECT = "ABILITY_SELECT"
 
+# Game constants
+CLICK_DELAY = 0.15  # Delay between clicks in seconds (match with engine.py)
+
 # Utility functions for game states
 
 def update_menu(game_engine, time_delta):
@@ -202,7 +205,7 @@ def update_playing(game_engine, time_delta):
     button_clicked = click_button.update(mouse_pos, mouse_pressed, game_engine.current_time)
     
     # Implement click delay unless rapid clicking ability is active
-    can_click = (game_engine.current_time - game_engine.last_click_time >= game_engine.CLICK_DELAY) or game_engine.player_abilities["rapid_clicking"]["active"]
+    can_click = (game_engine.current_time - game_engine.last_click_time >= CLICK_DELAY) or game_engine.player_abilities["rapid_clicking"]["active"]
     
     if button_clicked and can_click:
         game_engine.last_click_time = game_engine.current_time  # Update last click time

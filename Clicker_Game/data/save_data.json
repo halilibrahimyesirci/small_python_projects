@@ -1,23 +1,24 @@
 {
-    "level": 1,
-    "highest_level": 1,
-    "upgrade_points": 0,
-    "total_clicks": 307,
+    "level": 12,
+    "highest_level": 12,
+    "upgrade_points": 5,
+    "total_clicks": 1747,
     "stats": {
         "click_power": {
-            "level": 0,
-            "value": 1,
+            "level": 3,
+            "value": 4,
             "max_level": 5
         },
         "critical_chance": {
-            "level": 0,
-            "value": 0.1,
+            "level": 5,
+            "value": 0.35,
             "max_level": 5
         },
         "critical_multiplier": {
-            "level": 0,
-            "value": 2,
+            "level": 2,
+            "value": 4,
             "max_level": 5
         }
-    }
+    },
+    "coin_upgrade_level": 0
 }
