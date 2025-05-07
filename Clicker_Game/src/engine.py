@@ -41,13 +41,13 @@ logger = logging.getLogger(__name__)
 class GameEngine:
     """Core game engine handling main loop and game state"""
     
-    def __init__(self, config_path, player, level_manager, shop_manager=None):
+    def __init__(self, resource_manager, player, level_manager, shop_manager=None):
         # Initialize pygame
         pygame.init()
         pygame.mixer.init()
         
-        # Initialize managers
-        self.resource_manager = ResourceManager(config_path)
+        # Use the provided resource manager
+        self.resource_manager = resource_manager
         
         # Get screen dimensions from config
         self.width = self.resource_manager.get_config_value("screen", "width") or 800
@@ -163,7 +163,7 @@ class GameEngine:
         """Register state handlers with the state manager"""
         self.state_manager.register_state_handlers(STATE_MENU, update_menu, render_menu)
         self.state_manager.register_state_handlers(STATE_PLAYING, update_playing, render_playing)
-        self.state_manager.register_state_handlers(STATE_GAME_OVER_WIN, self._update_game_over_win, self._render_game_over_win)
+        self.state_manager.register_state_handlers(STATE_GAME_OVER_WIN, self._update_game_over_win, self._render_game_over_win)    
         self.state_manager.register_state_handlers(STATE_GAME_OVER_LOSE, self._update_game_over_lose, self._render_game_over_lose)
         self.state_manager.register_state_handlers(STATE_UPGRADE, update_upgrade, render_upgrade)
         self.state_manager.register_state_handlers(STATE_PAUSE, self._update_pause, self._render_pause)
@@ -382,10 +382,190 @@ class GameEngine:
         self.layout_manager.grid_place(STATE_UPGRADE, upgrade_continue_button, 3, 2)
         self.ui_elements[STATE_UPGRADE]["continue_button"] = upgrade_continue_button
         
-        # Setup for other states: PAUSE, SETTINGS, ABILITY_SELECT, ESC_MENU, SHOP
-        # (Similar setup with layout manager for each state...)
+        # ESC Menu UI - Using grid layout
+        esc_container = self.layout_manager.get_container(STATE_ESC_MENU)
+        self.layout_manager.grid_configure(STATE_ESC_MENU, 7, 3)
         
-        # More UI initialization would go here for each state, following the same pattern
+        # Resume button
+        resume_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Resume",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["green"]
+        )
+        self.layout_manager.grid_place(STATE_ESC_MENU, resume_button, 2, 1)
+        self.ui_elements[STATE_ESC_MENU]["resume_button"] = resume_button
+        
+        # Settings button
+        esc_settings_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Settings",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["blue"]
+        )
+        self.layout_manager.grid_place(STATE_ESC_MENU, esc_settings_button, 3, 1)
+        self.ui_elements[STATE_ESC_MENU]["settings_button"] = esc_settings_button
+        
+        # Shop button
+        shop_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Shop",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["gold"]
+        )
+        self.layout_manager.grid_place(STATE_ESC_MENU, shop_button, 4, 1)
+        self.ui_elements[STATE_ESC_MENU]["shop_button"] = shop_button
+        
+        # Main menu button
+        main_menu_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Main Menu",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["red"]
+        )
+        self.layout_manager.grid_place(STATE_ESC_MENU, main_menu_button, 5, 1)
+        self.ui_elements[STATE_ESC_MENU]["main_menu_button"] = main_menu_button
+        
+        # Settings UI - Using grid layout
+        settings_container = self.layout_manager.get_container(STATE_SETTINGS)
+        self.layout_manager.grid_configure(STATE_SETTINGS, 10, 5)  # More rows and columns for better spacing
+        
+        # Sound volume slider
+        sound_slider = Slider(
+            pygame.Rect(0, 0, 300, 30),
+            self.audio_settings["sound_volume"],  # initial value
+            0.0, 1.0,  # min and max values
+            self.colors["white"],  # bg_color
+            self.colors["blue"],   # handle_color
+            self.fonts["small"],   # font
+            label="Sound Volume"   # label
+        )
+        self.layout_manager.grid_place(STATE_SETTINGS, sound_slider, 2, 2)
+        self.ui_elements[STATE_SETTINGS]["sound_slider"] = sound_slider
+        
+        # Music volume slider
+        music_slider = Slider(
+            pygame.Rect(0, 0, 300, 30),
+            self.audio_settings["music_volume"],  # initial value
+            0.0, 1.0,  # min and max values
+            self.colors["white"],  # bg_color
+            self.colors["green"],  # handle_color
+            self.fonts["small"],   # font
+            label="Music Volume"   # label
+        )
+        self.layout_manager.grid_place(STATE_SETTINGS, music_slider, 4, 2)
+        self.ui_elements[STATE_SETTINGS]["music_slider"] = music_slider
+        
+        # Music selection buttons
+        music_files = [
+            "best_one.mp3",
+            "energitic_stuff.mp3",
+            "mhysteric_type.mp3",
+            "mid.mp3",
+            "very_energitic_stuff.mp3"
+        ]
+        
+        music_buttons = []
+        for i, music_file in enumerate(music_files):
+            # Calculate position in a two-row grid
+            row = 6 + (i // 3)  # Start at row 6, put 3 buttons per row
+            col = 1 + (i % 3)   # Start at col 1, spread across 3 columns
+            
+            # Create a button for each music file
+            music_name = music_file.replace(".mp3", "").replace("_", " ").title()
+            music_button = Button(
+                pygame.Rect(0, 0, 160, 40),
+                music_name,
+                self.fonts["small"],
+                self.colors["button"],
+                border_width=2,
+                border_color=self.colors["purple"]
+            )
+            self.layout_manager.grid_place(STATE_SETTINGS, music_button, row, col)
+            music_buttons.append((music_file, music_button))
+        
+        self.ui_elements[STATE_SETTINGS]["music_buttons"] = music_buttons
+        
+        # Back button for settings
+        settings_back_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Back",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["red"]
+        )
+        self.layout_manager.grid_place(STATE_SETTINGS, settings_back_button, 9, 2)
+        self.ui_elements[STATE_SETTINGS]["back_button"] = settings_back_button
+        
+        # Shop UI initialization
+        shop_container = self.layout_manager.get_container(STATE_SHOP)
+        self.layout_manager.grid_configure(STATE_SHOP, 8, 3)
+        
+        # Initialize shop item buttons list
+        self.ui_elements[STATE_SHOP]["item_buttons"] = []
+        
+        # Back button for shop
+        shop_back_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Back",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["red"]
+        )
+        self.layout_manager.grid_place(STATE_SHOP, shop_back_button, 7, 1)
+        self.ui_elements[STATE_SHOP]["back_button"] = shop_back_button
+        
+        # Pause menu UI - Using grid layout
+        pause_container = self.layout_manager.get_container(STATE_PAUSE)
+        self.layout_manager.grid_configure(STATE_PAUSE, 7, 3)
+        
+        # Resume button for pause menu
+        pause_resume_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Resume",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["green"]
+        )
+        self.layout_manager.grid_place(STATE_PAUSE, pause_resume_button, 3, 1)
+        self.ui_elements[STATE_PAUSE]["resume_button"] = pause_resume_button
+        
+        # Settings button for pause menu
+        pause_settings_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Settings",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["blue"]
+        )
+        self.layout_manager.grid_place(STATE_PAUSE, pause_settings_button, 4, 1)
+        self.ui_elements[STATE_PAUSE]["settings_button"] = pause_settings_button
+        
+        # Quit button for pause menu
+        pause_quit_button = Button(
+            pygame.Rect(0, 0, 200, 50),
+            "Quit",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["red"]
+        )
+        self.layout_manager.grid_place(STATE_PAUSE, pause_quit_button, 5, 1)
+        self.ui_elements[STATE_PAUSE]["quit_button"] = pause_quit_button
+        
+        # Ability select state UI will be initialized in the ability_select_state module
         
         # Register all UI elements with the UI manager for collision detection
         self._register_ui_elements_with_manager()
@@ -412,6 +592,9 @@ class GameEngine:
             
             # Process events
             self._process_events()
+            
+            # Update transitions
+            self.transition_manager.update()
             
             # Update game state
             self.state_manager.update(time_delta, self)
@@ -472,6 +655,9 @@ class GameEngine:
         
         # Render the current state using the state manager
         self.state_manager.render(self.screen, self)
+        
+        # Render any active transitions
+        self.transition_manager.render(self.screen)
         
         # Draw version info
         from src.ui import display_text
@@ -765,3 +951,24 @@ class GameEngine:
         
         # Adjust all positions to prevent collisions and stay within screen boundaries
         self.ui_manager.adjust_all_positions()
+        
+    def _start_transition(self, to_state, duration=None, transition_type=None):
+        """Start a transition to a new state"""
+        from_state = self.state_manager.current_state
+        next_state = to_state
+        # If transition manager is available, use it
+        if hasattr(self, 'transition_manager'):
+            next_state = self.transition_manager.start_transition(
+                from_state, 
+                to_state, 
+                self.screen, 
+                duration, 
+                transition_type
+            )
+        self.state_manager.change_state(next_state)
+        return next_state
+
+    @property
+    def previous_state(self):
+        """Get the previous state from the state manager"""
+        return self.state_manager.previous_state
