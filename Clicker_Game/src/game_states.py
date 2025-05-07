@@ -576,18 +576,135 @@ def render_upgrade(game_engine):
         center=True
     )
     
-    # Draw upgrade buttons
+    # Mouse position for tooltips
+    mouse_pos = pygame.mouse.get_pos()
+    
+    # Draw upgrade buttons with tooltips
     click_power_button = game_engine.ui_elements[STATE_UPGRADE]["click_power_button"]
     click_power_button.draw(game_engine.screen)
+    
+    # Click power tooltip
+    if click_power_button.rect.collidepoint(mouse_pos):
+        # Create tooltip background
+        tooltip_rect = pygame.Rect(mouse_pos[0] + 15, mouse_pos[1] + 10, 220, 60)
+        tooltip_surface = pygame.Surface((tooltip_rect.width, tooltip_rect.height), pygame.SRCALPHA)
+        tooltip_surface.fill((30, 30, 40, 220))  # Semi-transparent background
+        
+        # Draw tooltip border
+        pygame.draw.rect(tooltip_surface, (200, 200, 200, 100), (0, 0, tooltip_rect.width, tooltip_rect.height), 1)
+        
+        # Draw tooltip text
+        cost = 1  # Cost in upgrade points
+        current = game_engine.player.stats["click_power"]["value"]
+        next_val = current + 1
+        
+        # Tooltip text
+        tooltip_text1 = f"Click Power: {current} → {next_val}"
+        tooltip_text2 = f"Cost: {cost} upgrade point"
+        
+        text1 = game_engine.fonts["small"].render(tooltip_text1, True, (255, 255, 255))
+        text2 = game_engine.fonts["small"].render(tooltip_text2, True, (255, 255, 255))
+        
+        tooltip_surface.blit(text1, (10, 10))
+        tooltip_surface.blit(text2, (10, 30))
+        
+        # Draw tooltip at mouse position
+        game_engine.screen.blit(tooltip_surface, tooltip_rect)
     
     crit_chance_button = game_engine.ui_elements[STATE_UPGRADE]["crit_chance_button"]
     crit_chance_button.draw(game_engine.screen)
     
+    # Crit chance tooltip
+    if crit_chance_button.rect.collidepoint(mouse_pos):
+        # Create tooltip background
+        tooltip_rect = pygame.Rect(mouse_pos[0] + 15, mouse_pos[1] + 10, 220, 60)
+        tooltip_surface = pygame.Surface((tooltip_rect.width, tooltip_rect.height), pygame.SRCALPHA)
+        tooltip_surface.fill((30, 30, 40, 220))  # Semi-transparent background
+        
+        # Draw tooltip border
+        pygame.draw.rect(tooltip_surface, (200, 200, 200, 100), (0, 0, tooltip_rect.width, tooltip_rect.height), 1)
+        
+        # Draw tooltip text
+        cost = 1  # Cost in upgrade points
+        current = int(game_engine.player.stats["critical_chance"]["value"] * 100)
+        next_val = current + 5  # 5% increase per level
+        
+        # Tooltip text
+        tooltip_text1 = f"Crit Chance: {current}% → {next_val}%"
+        tooltip_text2 = f"Cost: {cost} upgrade point"
+        
+        text1 = game_engine.fonts["small"].render(tooltip_text1, True, (255, 255, 255))
+        text2 = game_engine.fonts["small"].render(tooltip_text2, True, (255, 255, 255))
+        
+        tooltip_surface.blit(text1, (10, 10))
+        tooltip_surface.blit(text2, (10, 30))
+        
+        # Draw tooltip at mouse position
+        game_engine.screen.blit(tooltip_surface, tooltip_rect)
+    
     crit_mult_button = game_engine.ui_elements[STATE_UPGRADE]["crit_mult_button"]
     crit_mult_button.draw(game_engine.screen)
     
+    # Crit multiplier tooltip
+    if crit_mult_button.rect.collidepoint(mouse_pos):
+        # Create tooltip background
+        tooltip_rect = pygame.Rect(mouse_pos[0] + 15, mouse_pos[1] + 10, 220, 60)
+        tooltip_surface = pygame.Surface((tooltip_rect.width, tooltip_rect.height), pygame.SRCALPHA)
+        tooltip_surface.fill((30, 30, 40, 220))  # Semi-transparent background
+        
+        # Draw tooltip border
+        pygame.draw.rect(tooltip_surface, (200, 200, 200, 100), (0, 0, tooltip_rect.width, tooltip_rect.height), 1)
+        
+        # Draw tooltip text
+        cost = 1  # Cost in upgrade points
+        current = game_engine.player.stats["critical_multiplier"]["value"]
+        next_val = current + 0.5  # 0.5x increase per level
+        
+        # Tooltip text
+        tooltip_text1 = f"Crit Mult: {current}x → {next_val}x"
+        tooltip_text2 = f"Cost: {cost} upgrade point"
+        
+        text1 = game_engine.fonts["small"].render(tooltip_text1, True, (255, 255, 255))
+        text2 = game_engine.fonts["small"].render(tooltip_text2, True, (255, 255, 255))
+        
+        tooltip_surface.blit(text1, (10, 10))
+        tooltip_surface.blit(text2, (10, 30))
+        
+        # Draw tooltip at mouse position
+        game_engine.screen.blit(tooltip_surface, tooltip_rect)
+    
     coin_upgrade_button = game_engine.ui_elements[STATE_UPGRADE]["coin_upgrade_button"]
     coin_upgrade_button.draw(game_engine.screen)
+    
+    # Coin upgrade tooltip
+    if coin_upgrade_button.rect.collidepoint(mouse_pos):
+        # Create tooltip background
+        tooltip_rect = pygame.Rect(mouse_pos[0] + 15, mouse_pos[1] + 10, 250, 80)
+        tooltip_surface = pygame.Surface((tooltip_rect.width, tooltip_rect.height), pygame.SRCALPHA)
+        tooltip_surface.fill((30, 30, 40, 220))  # Semi-transparent background
+        
+        # Draw tooltip border
+        pygame.draw.rect(tooltip_surface, (200, 200, 200, 100), (0, 0, tooltip_rect.width, tooltip_rect.height), 1)
+        
+        # Draw tooltip text
+        cost = 1  # Cost in upgrade points
+        current_level = game_engine.player.coin_upgrade_level
+        
+        # Tooltip text
+        tooltip_text1 = f"Coin Drop Level: {current_level} → {current_level + 1}"
+        tooltip_text2 = f"Improves coin drop rate and value"
+        tooltip_text3 = f"Cost: {cost} upgrade point"
+        
+        text1 = game_engine.fonts["small"].render(tooltip_text1, True, (255, 255, 255))
+        text2 = game_engine.fonts["small"].render(tooltip_text2, True, (255, 255, 255))
+        text3 = game_engine.fonts["small"].render(tooltip_text3, True, (255, 255, 255))
+        
+        tooltip_surface.blit(text1, (10, 10))
+        tooltip_surface.blit(text2, (10, 30))
+        tooltip_surface.blit(text3, (10, 50))
+        
+        # Draw tooltip at mouse position
+        game_engine.screen.blit(tooltip_surface, tooltip_rect)
     
     # Draw continue button
     continue_button = game_engine.ui_elements[STATE_UPGRADE]["continue_button"]
@@ -659,12 +776,13 @@ def render_upgrade(game_engine):
     # Coin upgrade stat
     coin_level = game_engine.player.coin_upgrade_level
     coin_max_level = game_engine.player.coin_upgrade_max_level
+    coin_stat_color = game_engine.colors["green"] if game_engine.player.can_upgrade_coins() else game_engine.colors["gold"]
     
     display_text(
         game_engine.screen,
         f"Coin Drop Rate: ({coin_level}/{coin_max_level})",
         game_engine.fonts["small"],
-        game_engine.colors["gold"],
+        coin_stat_color,
         game_engine.width // 2,
         y_offset + 60,
         center=True

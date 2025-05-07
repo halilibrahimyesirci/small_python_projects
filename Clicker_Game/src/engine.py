@@ -48,7 +48,7 @@ class GameEngine:
         
         # Create screen and clock
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("RPG Clicker V0.3.3")
+        pygame.display.set_caption("RPG Clicker V0.3.4")
         self.clock = pygame.time.Clock()
         
         # Create fonts
@@ -190,8 +190,8 @@ class GameEngine:
             STATE_SHOP: {}
         }
         
-        # Menu UI
-        play_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2, 200, 50)
+        # Menu UI - Adjusted for better layout
+        play_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 30, 200, 50)
         self.ui_elements[STATE_MENU]["play_button"] = Button(
             play_button_rect,
             "Play",
@@ -202,7 +202,7 @@ class GameEngine:
         )
         
         # Add settings button to menu
-        settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 60, 200, 50)
+        settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 40, 200, 50)
         self.ui_elements[STATE_MENU]["settings_button"] = Button(
             settings_button_rect,
             "Settings",
@@ -246,7 +246,7 @@ class GameEngine:
         self.ui_elements[STATE_PLAYING]["particles"] = ParticleSystem()
         
         # Game over (win) UI
-        continue_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 100, 200, 50)
+        continue_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 150, 200, 50)
         self.ui_elements[STATE_GAME_OVER_WIN]["continue_button"] = Button(
             continue_button_rect,
             "Continue",
@@ -257,7 +257,7 @@ class GameEngine:
         )
         
         # Game over (lose) UI
-        restart_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 100, 200, 50)
+        restart_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 150, 200, 50)
         self.ui_elements[STATE_GAME_OVER_LOSE]["restart_button"] = Button(
             restart_button_rect,
             "Restart",
@@ -267,12 +267,12 @@ class GameEngine:
             border_color=self.colors["red"]
         )
         
-        # Upgrade UI
-        btn_width, btn_height = 150, 40
-        padding = 20
-        start_y = self.height // 2 - 50
+        # Upgrade UI - Improved layout with larger buttons
+        btn_width, btn_height = 180, 50
+        padding = 40
+        start_y = self.height // 2 - 100
         
-        # Click power upgrade button
+        # Click power upgrade button - Top left
         click_power_rect = pygame.Rect(
             self.width // 2 - btn_width - padding,
             start_y,
@@ -288,7 +288,7 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
-        # Critical chance upgrade button
+        # Critical chance upgrade button - Top right
         crit_chance_rect = pygame.Rect(
             self.width // 2 + padding,
             start_y,
@@ -304,7 +304,7 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
-        # Critical multiplier upgrade button
+        # Critical multiplier upgrade button - Bottom left
         crit_mult_rect = pygame.Rect(
             self.width // 2 - btn_width - padding,
             start_y + btn_height + padding,
@@ -320,7 +320,7 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
-        # Coin upgrade button
+        # Coin upgrade button - Bottom right
         coin_upgrade_rect = pygame.Rect(
             self.width // 2 + padding,
             start_y + btn_height + padding,
@@ -336,7 +336,7 @@ class GameEngine:
             border_color=self.colors["gold"]
         )
         
-        # Continue button (after upgrades)
+        # Continue button (after upgrades) - Moved lower to avoid overlap
         upgrade_continue_rect = pygame.Rect(
             self.width // 2 - 100,
             start_y + (btn_height + padding) * 3,
@@ -353,7 +353,7 @@ class GameEngine:
         )
         
         # Pause UI
-        resume_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 60, 200, 50)
+        resume_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 80, 200, 50)
         self.ui_elements[STATE_PAUSE]["resume_button"] = Button(
             resume_button_rect,
             "Resume",
@@ -373,7 +373,7 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
-        quit_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 60, 200, 50)
+        quit_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 80, 200, 50)
         self.ui_elements[STATE_PAUSE]["quit_button"] = Button(
             quit_button_rect,
             "Quit",
@@ -401,7 +401,7 @@ class GameEngine:
         )
         
         # Music volume slider
-        music_slider_rect = pygame.Rect(slider_x, self.height // 3 + 60, slider_width, slider_height)
+        music_slider_rect = pygame.Rect(slider_x, self.height // 3 + 80, slider_width, slider_height)
         self.ui_elements[STATE_SETTINGS]["music_slider"] = Slider(
             music_slider_rect,
             self.audio_settings["music_volume"],
@@ -417,7 +417,7 @@ class GameEngine:
         music_btn_height = 40
         music_btn_x = self.width // 2 - music_btn_width // 2
         
-        # Create music selection buttons
+        # Create music selection buttons with better spacing
         music_files = ["mid.mp3", "best_one.mp3", "energitic_stuff.mp3", 
                        "mhysteric_type.mp3", "very_energitic_stuff.mp3"]
         
@@ -426,7 +426,7 @@ class GameEngine:
         for i, music_file in enumerate(music_files):
             music_btn_rect = pygame.Rect(
                 music_btn_x,
-                self.height // 3 + 120 + i * (music_btn_height + 10),
+                self.height // 3 + 150 + i * (music_btn_height + 15),
                 music_btn_width,
                 music_btn_height
             )
@@ -448,7 +448,7 @@ class GameEngine:
         # Back button
         back_button_rect = pygame.Rect(
             self.width // 2 - 100,
-            self.height - 100,
+            self.height - 80,
             200,
             50
         )
@@ -465,10 +465,10 @@ class GameEngine:
         self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"] = []
         self.ui_elements[STATE_ABILITY_SELECT]["selected_abilities"] = []
         
-        # ESC Menu UI
+        # ESC Menu UI - Improved layout and spacing
         btn_width, btn_height = 200, 50
-        btn_spacing = 20
-        start_y = self.height // 3 + 50
+        btn_spacing = 35  # Increased spacing
+        start_y = self.height // 3
         
         # Resume button
         resume_rect = pygame.Rect(
@@ -534,8 +534,8 @@ class GameEngine:
             border_color=self.colors["red"]
         )
         
-        # Shop UI
-        item_width, item_height = 250, 60
+        # Shop UI - Improved layout
+        item_width, item_height = 350, 70  # Increased height for better visibility
         item_spacing = 30
         item_start_y = self.height // 4
         item_start_x = self.width // 2 - item_width // 2
@@ -544,9 +544,9 @@ class GameEngine:
         
         # Back button
         back_button_rect = pygame.Rect(
-            50,
+            self.width // 2 - 100,
             self.height - 80,
-            150,
+            200,
             50
         )
         self.ui_elements[STATE_SHOP]["back_button"] = Button(
@@ -653,10 +653,19 @@ class GameEngine:
                     self.debug_mode = not self.debug_mode
                     logger.info(f"Debug mode {'enabled' if self.debug_mode else 'disabled'}")
                 
-                # Pause game with ESC during gameplay
-                if event.key == pygame.K_ESCAPE and self.game_state == STATE_PLAYING:
-                    self._start_transition(STATE_ESC_MENU)
-                    logger.info("Game paused")
+                # ESC key behavior for different states
+                if event.key == pygame.K_ESCAPE:
+                    if self.game_state == STATE_PLAYING:
+                        self._start_transition(STATE_ESC_MENU)
+                        logger.info("Game paused with ESC key")
+                    elif self.game_state == STATE_ESC_MENU:
+                        self._start_transition(STATE_PLAYING)
+                        logger.info("Game resumed with ESC key")
+                    elif self.game_state in [STATE_SETTINGS, STATE_SHOP, STATE_UPGRADE]:
+                        # Return to previous state
+                        previous_state = self.previous_state if self.previous_state else STATE_MENU
+                        self._start_transition(previous_state)
+                        logger.info(f"Returned to {previous_state} with ESC key")
                 
             # Handle mouse events in state-specific update methods
                 
@@ -718,7 +727,7 @@ class GameEngine:
         from src.ui import display_text
         display_text(
             self.screen,
-            "V0.3.3",
+            "V0.3.4",
             self.fonts["small"],
             self.colors["white"],
             self.width - 40,
