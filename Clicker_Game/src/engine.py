@@ -6,31 +6,36 @@ import logging
 import os
 import math
 from src.entities.coin import Coin
+from src.utils.ui_layout import UILayout, safe_label, safe_button_layout
 from src.game_states import (
     STATE_MENU, STATE_PLAYING, STATE_GAME_OVER_WIN, STATE_GAME_OVER_LOSE, 
     STATE_UPGRADE, STATE_PAUSE, STATE_SETTINGS, STATE_ABILITY_SELECT,
+    STATE_ESC_MENU, STATE_SHOP,
     update_menu, render_menu,
     update_playing, render_playing,
     update_settings, render_settings,
     update_upgrade, render_upgrade,
-    update_ability_select, render_ability_select
+    update_ability_select, render_ability_select,
+    update_esc_menu, render_esc_menu,
+    update_shop, render_shop
 )
 
 # State transition duration in seconds
 TRANSITION_DURATION = 0.3
 
 # Click delay in seconds
-CLICK_DELAY = 0.15  # Add delay between clicks
+CLICK_DELAY = 0.45  # Increased for V0.3.3 (was 0.15)
 
 logger = logging.getLogger(__name__)
 
 class GameEngine:
     """Core game engine handling main loop and game state"""
     
-    def __init__(self, resource_manager, player, level_manager):
+    def __init__(self, resource_manager, player, level_manager, shop_manager=None):
         self.resource_manager = resource_manager
         self.player = player
         self.level_manager = level_manager
+        self.shop_manager = shop_manager
         
         # Initialize pygame
         pygame.init()
@@ -43,7 +48,7 @@ class GameEngine:
         
         # Create screen and clock
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("RPG Clicker V0.3.2")
+        pygame.display.set_caption("RPG Clicker V0.3.3")
         self.clock = pygame.time.Clock()
         
         # Create fonts
@@ -180,7 +185,9 @@ class GameEngine:
             STATE_UPGRADE: {},
             STATE_PAUSE: {},
             STATE_SETTINGS: {},
-            STATE_ABILITY_SELECT: {}
+            STATE_ABILITY_SELECT: {},
+            STATE_ESC_MENU: {},
+            STATE_SHOP: {}
         }
         
         # Menu UI
@@ -458,6 +465,99 @@ class GameEngine:
         self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"] = []
         self.ui_elements[STATE_ABILITY_SELECT]["selected_abilities"] = []
         
+        # ESC Menu UI
+        btn_width, btn_height = 200, 50
+        btn_spacing = 20
+        start_y = self.height // 3 + 50
+        
+        # Resume button
+        resume_rect = pygame.Rect(
+            self.width // 2 - btn_width // 2,
+            start_y,
+            btn_width,
+            btn_height
+        )
+        self.ui_elements[STATE_ESC_MENU]["resume_button"] = Button(
+            resume_rect,
+            "Resume Game",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["green"]
+        )
+        
+        # Settings button
+        settings_rect = pygame.Rect(
+            self.width // 2 - btn_width // 2,
+            start_y + btn_height + btn_spacing,
+            btn_width,
+            btn_height
+        )
+        self.ui_elements[STATE_ESC_MENU]["settings_button"] = Button(
+            settings_rect,
+            "Settings",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["blue"]
+        )
+        
+        # Shop button
+        shop_rect = pygame.Rect(
+            self.width // 2 - btn_width // 2,
+            start_y + (btn_height + btn_spacing) * 2,
+            btn_width,
+            btn_height
+        )
+        self.ui_elements[STATE_ESC_MENU]["shop_button"] = Button(
+            shop_rect,
+            "Shop",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["gold"]
+        )
+        
+        # Main menu button
+        menu_rect = pygame.Rect(
+            self.width // 2 - btn_width // 2,
+            start_y + (btn_height + btn_spacing) * 3,
+            btn_width,
+            btn_height
+        )
+        self.ui_elements[STATE_ESC_MENU]["main_menu_button"] = Button(
+            menu_rect,
+            "Main Menu",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["red"]
+        )
+        
+        # Shop UI
+        item_width, item_height = 250, 60
+        item_spacing = 30
+        item_start_y = self.height // 4
+        item_start_x = self.width // 2 - item_width // 2
+        
+        self.ui_elements[STATE_SHOP]["item_buttons"] = []
+        
+        # Back button
+        back_button_rect = pygame.Rect(
+            50,
+            self.height - 80,
+            150,
+            50
+        )
+        self.ui_elements[STATE_SHOP]["back_button"] = Button(
+            back_button_rect,
+            "Back",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["blue"]
+        )
+        
     def _apply_audio_settings(self):
         """Apply audio settings"""
         pygame.mixer.music.set_volume(self.audio_settings["music_volume"])
@@ -555,7 +655,7 @@ class GameEngine:
                 
                 # Pause game with ESC during gameplay
                 if event.key == pygame.K_ESCAPE and self.game_state == STATE_PLAYING:
-                    self._start_transition(STATE_PAUSE)
+                    self._start_transition(STATE_ESC_MENU)
                     logger.info("Game paused")
                 
             # Handle mouse events in state-specific update methods
@@ -578,6 +678,10 @@ class GameEngine:
             update_settings(self, time_delta)
         elif self.game_state == STATE_ABILITY_SELECT:
             update_ability_select(self, time_delta)
+        elif self.game_state == STATE_ESC_MENU:
+            update_esc_menu(self, time_delta)
+        elif self.game_state == STATE_SHOP:
+            update_shop(self, time_delta)
             
     def _render(self):
         """Render the current game state"""
@@ -605,12 +709,16 @@ class GameEngine:
             render_settings(self)
         elif self.game_state == STATE_ABILITY_SELECT:
             render_ability_select(self)
+        elif self.game_state == STATE_ESC_MENU:
+            render_esc_menu(self)
+        elif self.game_state == STATE_SHOP:
+            render_shop(self)
             
         # Draw version info
         from src.ui import display_text
         display_text(
             self.screen,
-            "V0.3.2",
+            "V0.3.3",
             self.fonts["small"],
             self.colors["white"],
             self.width - 40,

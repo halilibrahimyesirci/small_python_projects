@@ -1,5 +1,7 @@
 import pygame
 import logging
+import random
+from src.utils.ui_layout import UILayout, safe_label, safe_button_layout
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,40 @@ class Button:
             text_surf = self.font.render(self.text, True, (0, 0, 0))
             text_rect = text_surf.get_rect(center=self.rect.center)
             surface.blit(text_surf, text_rect)
+
+    @staticmethod
+    def create_button_group(buttons_data, ui_layout=None, start_x=None, start_y=None, 
+                          direction="vertical", spacing=10):
+        """
+        Create a group of buttons with safe layout.
+        
+        Args:
+            buttons_data: List of (rect, text, font, colors) tuples
+            ui_layout: Optional UILayout manager
+            start_x, start_y: Starting position
+            direction: "vertical" or "horizontal"
+            spacing: Spacing between buttons
+            
+        Returns:
+            List of Button objects
+        """
+        buttons = []
+        
+        # Create buttons first
+        for rect, text, font, colors, border_width, border_color in buttons_data:
+            button = Button(rect, text, font, colors, border_width, border_color)
+            buttons.append(button)
+            
+        # If we have a layout manager, use it to position buttons
+        if ui_layout and start_x is not None and start_y is not None:
+            positions = safe_button_layout(buttons, start_x, start_y, direction, spacing, ui_layout)
+            
+            # Update button positions
+            for i, (x, y) in enumerate(positions):
+                buttons[i].rect.x = x
+                buttons[i].rect.y = y
+                
+        return buttons
 
 
 class ProgressBar:
@@ -362,15 +398,18 @@ class Slider:
             surface.blit(value_surf, value_rect)
 
 
-def display_text(surface, text, font, color, x, y, center=False):
-    """Helper function to draw text on a surface"""
-    text_surf = font.render(text, True, color)
-    text_rect = text_surf.get_rect()
-    
-    if center:
-        text_rect.center = (x, y)
+def display_text(surface, text, font, color, x, y, center=False, ui_layout=None):
+    """Helper function to draw text on a surface with safe positioning"""
+    if ui_layout:
+        return safe_label(surface, text, font, color, x, y, center=center, ui_layout=ui_layout)
     else:
-        text_rect.topleft = (x, y)
+        text_surf = font.render(text, True, color)
+        text_rect = text_surf.get_rect()
         
-    surface.blit(text_surf, text_rect)
-    return text_rect
+        if center:
+            text_rect.center = (x, y)
+        else:
+            text_rect.topleft = (x, y)
+            
+        surface.blit(text_surf, text_rect)
+        return text_rect

@@ -1,18 +1,60 @@
 """
-RPG Clicker Game V0.3.2
+RPG Clicker Game V0.3.3
 A clicker-style game with RPG elements.
 """
 
 import logging
 import os
 import sys
+import time
+import traceback
+from logging.handlers import RotatingFileHandler
 
 # Setup logging
-logging.basicConfig(
-    filename='rpg_clicker.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+log_file = 'rpg_clicker.log'
+try:
+    # Ensure the log directory exists
+    log_dir = os.path.dirname(os.path.abspath(log_file))
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    # Configure root logger with a rotating file handler
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Add rotating file handler (max 5MB per file, keep 3 backup files)
+    file_handler = RotatingFileHandler(
+        log_file,
+        maxBytes=5*1024*1024,
+        backupCount=3,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(logging.INFO)
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(file_formatter)
+    root_logger.addHandler(file_handler)
+    
+    # Add console handler for immediate feedback
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.WARNING)  # Only warnings and above go to console
+    console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_formatter)
+    root_logger.addHandler(console_handler)
+    
+    # Add a timestamp to the log file
+    logging.info("=" * 80)
+    logging.info(f"Log session started: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    logging.info("=" * 80)
+    
+except Exception as e:
+    print(f"Failed to set up logging: {e}")
+    # Set up a basic configuration if the advanced one fails
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+# Create a logger for the main module
 logger = logging.getLogger("main")
 
 # Ensure we can import from the src directory
@@ -25,10 +67,11 @@ try:
     from src.player import Player
     from src.levels import LevelManager
     from src.engine import GameEngine
+    from src.shop import ShopManager
     
     def main():
         """Main entry point for the game"""
-        logger.info("Starting RPG Clicker V0.3.2")
+        logger.info("Starting RPG Clicker V0.3.3")
         
         # Initialize the resource manager
         resource_manager = ResourceManager()
@@ -39,8 +82,11 @@ try:
         # Initialize the level manager
         level_manager = LevelManager(resource_manager)
         
-        # Initialize the game engine
-        engine = GameEngine(resource_manager, player, level_manager)
+        # Initialize the shop manager
+        shop_manager = ShopManager(resource_manager)
+        
+        # Initialize the game engine with shop manager
+        engine = GameEngine(resource_manager, player, level_manager, shop_manager)
         
         # Run the game
         engine.run()

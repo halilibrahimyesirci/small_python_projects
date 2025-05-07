@@ -12,18 +12,19 @@ from src.entities.coin import Coin
 logger = logging.getLogger(__name__)
 
 # Game states
-STATE_MENU = "MENU"
-STATE_PLAYING = "PLAYING"
-STATE_GAME_OVER_WIN = "GAME_OVER_WIN"
-STATE_GAME_OVER_LOSE = "GAME_OVER_LOSE"
-STATE_UPGRADE = "UPGRADE"
-STATE_PAUSE = "PAUSE"
-STATE_SETTINGS = "SETTINGS"
-STATE_ABILITY_SELECT = "ABILITY_SELECT"
-STATE_ESC_MENU = "ESC_MENU"
+STATE_MENU = "menu"
+STATE_PLAYING = "playing"
+STATE_GAME_OVER_WIN = "game_over_win"
+STATE_GAME_OVER_LOSE = "game_over_lose"
+STATE_UPGRADE = "upgrade"
+STATE_PAUSE = "pause"
+STATE_SETTINGS = "settings"
+STATE_ABILITY_SELECT = "ability_select"
+STATE_ESC_MENU = "esc_menu"  # New in V0.3.3
+STATE_SHOP = "shop"  # New in V0.3.3
 
 # Game constants
-CLICK_DELAY = 0.45  # Delay between clicks in seconds (match with engine.py)
+CLICK_DELAY = 0.45  # Increased for V0.3.3 (was 0.15)
 
 # Utility functions for game states
 
@@ -748,3 +749,239 @@ def render_ability_select(game_engine):
         
     # Draw continue button
     game_engine.ui_elements[STATE_ABILITY_SELECT]["continue_button"].draw(game_engine.screen)
+
+def update_esc_menu(game_engine, time_delta):
+    """Update ESC menu state"""
+    mouse_pos = pygame.mouse.get_pos()
+    mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
+    
+    # Check for ESC key press to resume
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_ESCAPE]:
+        game_engine._start_transition(STATE_PLAYING)
+        logger.info("Game resumed via ESC key")
+        return
+    
+    # Resume button
+    resume_button = game_engine.ui_elements[STATE_ESC_MENU]["resume_button"]
+    if resume_button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+        game_engine._start_transition(STATE_PLAYING)
+        logger.info("Game resumed from ESC menu")
+    
+    # Settings button
+    settings_button = game_engine.ui_elements[STATE_ESC_MENU]["settings_button"]
+    if settings_button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+        game_engine._start_transition(STATE_SETTINGS)
+        logger.info("Opening settings from ESC menu")
+    
+    # Shop button
+    shop_button = game_engine.ui_elements[STATE_ESC_MENU]["shop_button"]
+    if shop_button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+        # Initialize the shop items if not already done
+        if not hasattr(game_engine, 'shop_manager'):
+            from src.shop import ShopManager
+            game_engine.shop_manager = ShopManager(game_engine.resource_manager)
+            
+        # Reset shop UI
+        from src.ui import Button
+        if not game_engine.ui_elements[STATE_SHOP]["item_buttons"]:
+            item_width, item_height = 350, 60
+            item_spacing = 20
+            item_start_y = game_engine.height // 4
+            
+            # Create buttons for each shop item
+            for i, item in enumerate(game_engine.shop_manager.items):
+                item_rect = pygame.Rect(
+                    game_engine.width // 2 - item_width // 2,
+                    item_start_y + i * (item_height + item_spacing),
+                    item_width,
+                    item_height
+                )
+                
+                # Button colors based on affordability
+                colors = game_engine.colors["button"].copy()
+                
+                # Create button for the item
+                item_button = Button(
+                    item_rect,
+                    f"{item.name} - {item.cost} coins",
+                    game_engine.fonts["medium"],
+                    colors,
+                    border_width=2,
+                    border_color=game_engine.colors["blue"]
+                )
+                
+                game_engine.ui_elements[STATE_SHOP]["item_buttons"].append((item, item_button))
+        
+        game_engine._start_transition(STATE_SHOP)
+        logger.info("Opening shop from ESC menu")
+    
+    # Main menu button
+    menu_button = game_engine.ui_elements[STATE_ESC_MENU]["main_menu_button"]
+    if menu_button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+        game_engine._start_transition(STATE_MENU)
+        logger.info("Returning to main menu from ESC menu")
+            
+def render_esc_menu(game_engine):
+    """Render ESC menu state"""
+    from src.ui import display_text
+    
+    # Semi-transparent overlay
+    overlay = pygame.Surface((game_engine.width, game_engine.height), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))  # Semi-transparent black
+    game_engine.screen.blit(overlay, (0, 0))
+    
+    # Display title
+    display_text(
+        game_engine.screen,
+        "Game Menu",
+        game_engine.fonts["large"],
+        game_engine.colors["white"],
+        game_engine.width // 2,
+        game_engine.height // 5,
+        center=True
+    )
+    
+    # Display current coins
+    display_text(
+        game_engine.screen,
+        f"Coins: {int(game_engine.player.coins)}",
+        game_engine.fonts["medium"],
+        game_engine.colors["gold"],
+        game_engine.width // 2,
+        game_engine.height // 5 + 50,
+        center=True
+    )
+    
+    # Draw buttons
+    game_engine.ui_elements[STATE_ESC_MENU]["resume_button"].draw(game_engine.screen)
+    game_engine.ui_elements[STATE_ESC_MENU]["settings_button"].draw(game_engine.screen)
+    game_engine.ui_elements[STATE_ESC_MENU]["shop_button"].draw(game_engine.screen)
+    game_engine.ui_elements[STATE_ESC_MENU]["main_menu_button"].draw(game_engine.screen)
+
+def update_shop(game_engine, time_delta):
+    """Update shop state"""
+    mouse_pos = pygame.mouse.get_pos()
+    mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
+    
+    # Update back button
+    back_button = game_engine.ui_elements[STATE_SHOP]["back_button"]
+    if back_button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+        game_engine._start_transition(STATE_ESC_MENU)
+        logger.info("Returning to ESC menu from shop")
+    
+    # Update item buttons
+    for i, (item, button) in enumerate(game_engine.ui_elements[STATE_SHOP]["item_buttons"]):
+        # Update button appearance based on affordability
+        _update_shop_button_appearance(game_engine, i, item)
+        
+        # Check if item was purchased
+        if button.update(mouse_pos, mouse_clicked, game_engine.current_time):
+            if item.can_purchase(game_engine.player.coins):
+                if game_engine.shop_manager.purchase_item(i, game_engine.player):
+                    # Play purchase sound
+                    if "coin" in game_engine.resource_manager.sounds:
+                        game_engine.resource_manager.sounds["coin"].play()
+                    
+                    # Update button text after purchase
+                    new_cost = item.get_next_cost()
+                    button.text = f"{item.name} - {new_cost} coins"
+                    
+                    # Save player progress
+                    game_engine.player.save_progress()
+                    logger.info(f"Purchased {item.name} for {item.cost} coins")
+            else:
+                # Play error sound
+                if "error" in game_engine.resource_manager.sounds:
+                    game_engine.resource_manager.sounds["error"].play()
+                logger.info(f"Cannot afford {item.name} ({item.cost} coins)")
+
+def render_shop(game_engine):
+    """Render shop state"""
+    from src.ui import display_text
+    
+    # Display shop title
+    display_text(
+        game_engine.screen,
+        "Shop",
+        game_engine.fonts["large"],
+        game_engine.colors["gold"],
+        game_engine.width // 2,
+        50,
+        center=True
+    )
+    
+    # Display current coins
+    display_text(
+        game_engine.screen,
+        f"Your coins: {int(game_engine.player.coins)}",
+        game_engine.fonts["medium"],
+        game_engine.colors["gold"],
+        game_engine.width // 2,
+        100,
+        center=True
+    )
+    
+    # Draw item buttons
+    for item, button in game_engine.ui_elements[STATE_SHOP]["item_buttons"]:
+        button.draw(game_engine.screen)
+        
+        # Draw item description below the button
+        y_offset = button.rect.bottom + 5
+        display_text(
+            game_engine.screen,
+            item.description,
+            game_engine.fonts["small"],
+            game_engine.colors["white"],
+            button.rect.centerx,
+            y_offset,
+            center=True
+        )
+        
+        # Display quantity for items with limited quantities
+        if item.max_quantity is not None:
+            quantity_text = f"Owned: {item.purchased_quantity}/{item.max_quantity}"
+            display_text(
+                game_engine.screen,
+                quantity_text,
+                game_engine.fonts["small"],
+                game_engine.colors["white"],
+                button.rect.right - 10,
+                button.rect.centery,
+                center=False
+            )
+    
+    # Draw back button
+    game_engine.ui_elements[STATE_SHOP]["back_button"].draw(game_engine.screen)
+    
+def _update_shop_button_appearance(game_engine, item_index, item):
+    """Update shop button appearance based on item status"""
+    _, button = game_engine.ui_elements[STATE_SHOP]["item_buttons"][item_index]
+    
+    # Update button text
+    cost = item.get_next_cost()
+    button.text = f"{item.name} - {cost} coins"
+    
+    # Change button color based on affordability and max quantity
+    if item.max_quantity is not None and item.purchased_quantity >= item.max_quantity:
+        # Max quantity reached
+        button.colors = {
+            "normal": (100, 100, 100),  # Grey
+            "hover": (120, 120, 120),
+            "clicked": (140, 140, 140)
+        }
+        button.text = f"{item.name} - MAX"
+    elif item.can_purchase(game_engine.player.coins):
+        # Can afford
+        button.colors = {
+            "normal": (100, 200, 100),  # Green
+            "hover": (120, 220, 120),
+            "clicked": (140, 240, 140)
+        }
+    else:
+        # Can't afford
+        button.colors = {
+            "normal": (200, 100, 100),  # Red
+            "hover": (220, 120, 120),
+            "clicked": (240, 140, 140)
+        }
