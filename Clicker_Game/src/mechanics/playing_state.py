@@ -290,25 +290,46 @@ def update_progress(game_engine):
 
 def render_playing(game_engine):
     """Render playing state"""
-    # Draw click button
+    # Sort UI elements by z-index for proper layering
+    ui_elements = {}
+    for key, element in game_engine.ui_elements[STATE_PLAYING].items():
+        if hasattr(element, 'z_index'):
+            ui_elements[key] = element
+    
+    # Explicitly define z-indices for key elements if not already set
+    if "click_button" in ui_elements:
+        # The main game_click_area should have a lower z-index than other UI
+        game_engine.ui_elements[STATE_PLAYING]["click_button"].z_index = 5
+    
+    if "progress_bar" in ui_elements:
+        game_engine.ui_elements[STATE_PLAYING]["progress_bar"].z_index = 10
+    
+    if "combo_meter" in ui_elements:
+        game_engine.ui_elements[STATE_PLAYING]["combo_meter"].z_index = 15
+    
+    # Sort elements by z-index (lower values drawn first)
+    sorted_elements = sorted(
+        [(key, element) for key, element in game_engine.ui_elements[STATE_PLAYING].items() 
+         if hasattr(element, 'z_index')],
+        key=lambda x: x[1].z_index
+    )
+    
+    # Draw background elements (game_click_area)
     game_engine.ui_elements[STATE_PLAYING]["click_button"].draw(game_engine.screen)
     
-    # Draw falling coins
+    # Draw falling coins (between game_click_area and UI elements)
     for coin in game_engine.coins:
         coin.draw(game_engine.screen)
     
-    # Draw progress bar
-    game_engine.ui_elements[STATE_PLAYING]["progress_bar"].draw(game_engine.screen)
+    # Draw UI elements in order of z-index
+    for key, element in sorted_elements:
+        if key != "click_button" and key != "particles":  # We handle these separately
+            element.draw(game_engine.screen)
     
-    # Draw combo meter if active
-    combo_meter = game_engine.ui_elements[STATE_PLAYING]["combo_meter"]
-    if combo_meter.active:
-        combo_meter.draw(game_engine.screen)
-        
-    # Draw particles
+    # Draw particles (always on top)
     game_engine.ui_elements[STATE_PLAYING]["particles"].draw(game_engine.screen)
     
-    # Display active abilities
+    # Display active abilities (top layer)
     active_count = 0
     for ability_name, ability in game_engine.player_abilities.items():
         if ability["active"]:
@@ -323,7 +344,7 @@ def render_playing(game_engine):
             )
             active_count += 1
     
-    # Display coin counter
+    # Display coin counter (top layer)
     if game_engine.coin_counter > 0:
         display_text(
             game_engine.screen,

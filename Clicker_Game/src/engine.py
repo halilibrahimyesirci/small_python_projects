@@ -209,6 +209,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_MENU]["play_button"], "z_index"):
+            self.ui_elements[STATE_MENU]["play_button"].z_index = 10
         
         # Add settings button to menu
         settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 40, 200, 50)
@@ -220,6 +222,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_MENU]["settings_button"], "z_index"):
+            self.ui_elements[STATE_MENU]["settings_button"].z_index = 10
         
         # Playing UI
         click_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 50, 200, 100)
@@ -231,6 +235,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        # Set a lower z-index for game_click_area so it appears behind other UI elements
+        self.ui_elements[STATE_PLAYING]["click_button"].z_index = 5
         
         # Progress bar for clicks
         progress_rect = pygame.Rect(50, self.height - 40, self.width - 100, 20)
@@ -241,6 +247,8 @@ class GameEngine:
             border_color=self.colors["white"],
             border_width=2
         )
+        # Set higher z-index for UI elements
+        self.ui_elements[STATE_PLAYING]["progress_bar"].z_index = 10
         
         # Combo meter
         combo_rect = pygame.Rect(self.width // 2 - 100, 80, 200, 30)
@@ -250,9 +258,14 @@ class GameEngine:
             self.fonts["medium"],
             decay_rate=0.5
         )
+        # Set higher z-index for UI labels/meters
+        self.ui_elements[STATE_PLAYING]["combo_meter"].z_index = 15
         
         # Particle system
         self.ui_elements[STATE_PLAYING]["particles"] = ParticleSystem()
+        
+        # Ensure other UI elements across all states have proper z-index
+        # This will clarify the difference between game_click_area and regular buttons
         
         # Game over (win) UI
         continue_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 150, 200, 50)
@@ -264,6 +277,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["green"]
         )
+        if hasattr(self.ui_elements[STATE_GAME_OVER_WIN]["continue_button"], "z_index"):
+            self.ui_elements[STATE_GAME_OVER_WIN]["continue_button"].z_index = 10
         
         # Game over (lose) UI
         restart_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 150, 200, 50)
@@ -275,6 +290,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["red"]
         )
+        if hasattr(self.ui_elements[STATE_GAME_OVER_LOSE]["restart_button"], "z_index"):
+            self.ui_elements[STATE_GAME_OVER_LOSE]["restart_button"].z_index = 10
         
         # Upgrade UI - Improved layout with larger buttons
         btn_width, btn_height = 180, 50
@@ -296,6 +313,8 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_UPGRADE]["click_power_button"], "z_index"):
+            self.ui_elements[STATE_UPGRADE]["click_power_button"].z_index = 10
         
         # Critical chance upgrade button - Top right
         crit_chance_rect = pygame.Rect(
@@ -312,6 +331,8 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_UPGRADE]["crit_chance_button"], "z_index"):
+            self.ui_elements[STATE_UPGRADE]["crit_chance_button"].z_index = 10
         
         # Critical multiplier upgrade button - Bottom left
         crit_mult_rect = pygame.Rect(
@@ -328,6 +349,8 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_UPGRADE]["crit_mult_button"], "z_index"):
+            self.ui_elements[STATE_UPGRADE]["crit_mult_button"].z_index = 10
         
         # Coin upgrade button - Bottom right
         coin_upgrade_rect = pygame.Rect(
@@ -344,6 +367,8 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["gold"]
         )
+        if hasattr(self.ui_elements[STATE_UPGRADE]["coin_upgrade_button"], "z_index"):
+            self.ui_elements[STATE_UPGRADE]["coin_upgrade_button"].z_index = 10
         
         # Continue button (after upgrades) - Moved lower to avoid overlap
         upgrade_continue_rect = pygame.Rect(
@@ -360,6 +385,8 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["green"]
         )
+        if hasattr(self.ui_elements[STATE_UPGRADE]["continue_button"], "z_index"):
+            self.ui_elements[STATE_UPGRADE]["continue_button"].z_index = 10
         
         # Pause UI
         resume_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 80, 200, 50)
@@ -371,6 +398,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_PAUSE]["resume_button"], "z_index"):
+            self.ui_elements[STATE_PAUSE]["resume_button"].z_index = 10
         
         settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2, 200, 50)
         self.ui_elements[STATE_PAUSE]["settings_button"] = Button(
@@ -381,6 +410,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_PAUSE]["settings_button"], "z_index"):
+            self.ui_elements[STATE_PAUSE]["settings_button"].z_index = 10
         
         quit_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 80, 200, 50)
         self.ui_elements[STATE_PAUSE]["quit_button"] = Button(
@@ -391,6 +422,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["red"]
         )
+        if hasattr(self.ui_elements[STATE_PAUSE]["quit_button"], "z_index"):
+            self.ui_elements[STATE_PAUSE]["quit_button"].z_index = 10
         
         # Settings UI
         slider_width = 300
@@ -408,6 +441,8 @@ class GameEngine:
             self.fonts["medium"],
             "Sound Volume"
         )
+        if hasattr(self.ui_elements[STATE_SETTINGS]["sound_slider"], "z_index"):
+            self.ui_elements[STATE_SETTINGS]["sound_slider"].z_index = 10
         
         # Music volume slider
         music_slider_rect = pygame.Rect(slider_x, self.height // 3 + 80, slider_width, slider_height)
@@ -420,6 +455,8 @@ class GameEngine:
             self.fonts["medium"],
             "Music Volume"
         )
+        if hasattr(self.ui_elements[STATE_SETTINGS]["music_slider"], "z_index"):
+            self.ui_elements[STATE_SETTINGS]["music_slider"].z_index = 10
         
         # Music selection buttons
         music_btn_width = 180
@@ -451,6 +488,8 @@ class GameEngine:
                 border_width=2,
                 border_color=self.colors["purple"]
             )
+            if hasattr(music_btn, "z_index"):
+                music_btn.z_index = 10
             
             self.ui_elements[STATE_SETTINGS]["music_buttons"].append((music_file, music_btn))
         
@@ -469,6 +508,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_SETTINGS]["back_button"], "z_index"):
+            self.ui_elements[STATE_SETTINGS]["back_button"].z_index = 10
         
         # Ability Selection UI
         self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"] = []
@@ -494,6 +535,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["green"]
         )
+        if hasattr(self.ui_elements[STATE_ESC_MENU]["resume_button"], "z_index"):
+            self.ui_elements[STATE_ESC_MENU]["resume_button"].z_index = 10
         
         # Settings button
         settings_rect = pygame.Rect(
@@ -510,6 +553,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_ESC_MENU]["settings_button"], "z_index"):
+            self.ui_elements[STATE_ESC_MENU]["settings_button"].z_index = 10
         
         # Shop button
         shop_rect = pygame.Rect(
@@ -526,6 +571,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["gold"]
         )
+        if hasattr(self.ui_elements[STATE_ESC_MENU]["shop_button"], "z_index"):
+            self.ui_elements[STATE_ESC_MENU]["shop_button"].z_index = 10
         
         # Main menu button
         menu_rect = pygame.Rect(
@@ -542,6 +589,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["red"]
         )
+        if hasattr(self.ui_elements[STATE_ESC_MENU]["main_menu_button"], "z_index"):
+            self.ui_elements[STATE_ESC_MENU]["main_menu_button"].z_index = 10
         
         # Shop UI - Improved layout
         item_width, item_height = 350, 70  # Increased height for better visibility
@@ -566,6 +615,8 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
+        if hasattr(self.ui_elements[STATE_SHOP]["back_button"], "z_index"):
+            self.ui_elements[STATE_SHOP]["back_button"].z_index = 10
         
         # Register all UI elements with the UI manager for collision detection
         self._register_ui_elements_with_manager()

@@ -427,10 +427,11 @@ def display_text(surface, text, font, color, x, y, center=False, ui_layout=None)
 class UIElement:
     """Base class for UI elements with collision detection"""
     
-    def __init__(self, rect):
+    def __init__(self, rect, z_index=0):
         self.rect = rect
         self.visible = True
         self.collision_enabled = True
+        self.z_index = z_index  # Higher z-index means element is rendered on top
         
     def check_collision(self, other_element):
         """Check if this element collides with another element"""
@@ -501,17 +502,21 @@ class UIManager:
         """Adjust positions of all elements to avoid collisions and respect screen boundaries"""
         for element in self.elements:
             element.adjust_position(self.elements, self.screen_width, self.screen_height)
+    
+    def get_sorted_elements(self):
+        """Get all elements sorted by z-index (lower z-index elements are drawn first)"""
+        return sorted(self.elements, key=lambda elem: elem.z_index)
             
-    def convert_to_ui_element(self, pygame_element, element_type="generic"):
+    def convert_to_ui_element(self, pygame_element, element_type="generic", z_index=0):
         """Convert a Pygame element with a rect to a UIElement"""
-        ui_element = UIElement(pygame_element.rect)
+        ui_element = UIElement(pygame_element.rect, z_index=z_index)
         ui_element.original_element = pygame_element
         ui_element.element_type = element_type
         return ui_element
         
-    def manage_button(self, button):
+    def manage_button(self, button, z_index=10):
         """Add a button to the manager and convert it to a UIElement"""
-        ui_element = self.convert_to_ui_element(button, "button")
+        ui_element = self.convert_to_ui_element(button, "button", z_index=z_index)
         self.add_element(ui_element)
         return ui_element
         
