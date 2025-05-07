@@ -73,8 +73,13 @@ try:
         """Main entry point for the game"""
         logger.info("Starting RPG Clicker V0.3.3")
         
+        
+        
         # Initialize the resource manager
         resource_manager = ResourceManager()
+        
+        # Ensure default configuration values
+        resource_manager = ensure_config_defaults(resource_manager)
         
         # Initialize the player
         player = Player(resource_manager)
@@ -90,6 +95,17 @@ try:
         
         # Run the game
         engine.run()
+    
+    def ensure_config_defaults(resource_manager):
+        """Ensure default configuration values are set"""
+        # Set debug default if not present
+        if not resource_manager.get_config_value("debug", "enabled", None):
+            resource_manager.config.setdefault("debug", {})
+            resource_manager.config["debug"]["enabled"] = False
+            logger.info("Set default debug.enabled configuration to False")
+        
+        # You can add other default config settings here as needed
+        return resource_manager
         
     if __name__ == "__main__":
         try:
@@ -107,3 +123,4 @@ except ImportError as e:
 except Exception as e:
     print(f"Error: {e}")
     sys.exit(1)
+

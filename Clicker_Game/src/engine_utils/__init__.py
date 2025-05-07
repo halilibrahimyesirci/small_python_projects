@@ -10,4 +10,4 @@ from .transitions import TransitionManager, TRANSITION_FADE, TRANSITION_SLIDE_LE
 from .debug import DebugManager
 
 # Version information
-__version__ = "0.1.0"
+__version__ = "0.3.4"

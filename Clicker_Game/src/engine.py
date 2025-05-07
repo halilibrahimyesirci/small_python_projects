@@ -225,8 +225,8 @@ class GameEngine:
             
         # Menu UI - Using grid layout
         menu_container = self.layout_manager.get_container(STATE_MENU)
-        self.layout_manager.grid_configure(STATE_MENU, 5, 3)  # 5 rows, 3 columns
-        
+        self.layout_manager.grid_configure(STATE_MENU, 4, 3)  # 5 rows, 3 columns
+
         play_button = Button(
             pygame.Rect(0, 0, 200, 50),  # Placeholder rect, will be positioned by grid
             "Play",
@@ -237,7 +237,8 @@ class GameEngine:
         )
         self.layout_manager.grid_place(STATE_MENU, play_button, 1, 1)  # Row 1, Col 1
         self.ui_elements[STATE_MENU]["play_button"] = play_button
-        
+
+        # Change the row for the settings button from 2 to 3 to separate it from the play button
         settings_button = Button(
             pygame.Rect(0, 0, 200, 50),  # Placeholder rect
             "Settings",
@@ -246,12 +247,12 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["blue"]
         )
-        self.layout_manager.grid_place(STATE_MENU, settings_button, 2, 1)  # Row 2, Col 1
+        self.layout_manager.grid_place(STATE_MENU, settings_button, 4, 1)  # Change from row 2 to row 3
         self.ui_elements[STATE_MENU]["settings_button"] = settings_button
         
         # Playing UI - Using both grid and pack layouts
         playing_container = self.layout_manager.get_container(STATE_PLAYING)
-        self.layout_manager.grid_configure(STATE_PLAYING, 7, 3)  # 7 rows, 3 columns
+        self.layout_manager.grid_configure(STATE_PLAYING, 6, 3)  # 7 rows, 3 columns
         
         # Centered click button with increased size for better usability
         click_button = Button(
