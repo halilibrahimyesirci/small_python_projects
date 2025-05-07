@@ -10,6 +10,16 @@ def update_playing(game_engine, time_delta):
     mouse_pos = pygame.mouse.get_pos()
     mouse_pressed = pygame.mouse.get_pressed()[0]  # Left button
     
+    # Update money counter and level indicator
+    if "money_counter" in game_engine.ui_elements[STATE_PLAYING]:
+        game_engine.ui_elements[STATE_PLAYING]["money_counter"].text = f"Coins: {game_engine.coin_counter}"
+    
+    if "level_indicator" in game_engine.ui_elements[STATE_PLAYING]:
+        level_text = f"Level: {game_engine.player.level}"
+        if game_engine.current_level and game_engine.current_level.is_boss:
+            level_text += " (Boss)"
+        game_engine.ui_elements[STATE_PLAYING]["level_indicator"].text = level_text
+    
     # Check for spacebar press to open shop instead of upgrade menu
     keys = pygame.key.get_pressed()
     if keys[pygame.K_SPACE]:
@@ -22,32 +32,36 @@ def update_playing(game_engine, time_delta):
         from src.ui import Button
         game_engine.ui_elements[STATE_SHOP]["item_buttons"] = []  # Clear existing buttons
         
-        item_width, item_height = 350, 70  # Increased height for better visibility
-        item_spacing = 30  # Increased spacing between items
-        item_start_y = game_engine.height // 4
+        # Update coin display in shop
+        if "coin_display" in game_engine.ui_elements[STATE_SHOP]:
+            game_engine.ui_elements[STATE_SHOP]["coin_display"].text = f"Coins: {game_engine.coin_counter}"
+        
+        # Position items better in a scrollable layout
+        item_width, item_height = 350, 60  # Slightly smaller height
+        item_spacing = 20  # Reduced spacing for more items on screen
         
         # Create buttons for each shop item with improved layout
         for i, item in enumerate(game_engine.shop_manager.items):
-            item_rect = pygame.Rect(
-                game_engine.width // 2 - item_width // 2,
-                item_start_y + i * (item_height + item_spacing),
-                item_width,
-                item_height
-            )
+            # Make sure items fit within the grid rows we configured (row 3 to 10)
+            row = min(i + 3, 10)  # Start at row 3, up to row 10
             
             # Button colors based on affordability
             colors = game_engine.colors["button"].copy()
+            if game_engine.coin_counter < item.cost:
+                colors = {"normal": (100, 100, 100), "hover": (120, 120, 120), "clicked": (150, 150, 150)}
             
             # Create button for the item
             item_button = Button(
-                item_rect,
+                pygame.Rect(0, 0, item_width, item_height),
                 f"{item.name} - {item.cost} coins",
                 game_engine.fonts["medium"],
                 colors,
                 border_width=2,
-                border_color=game_engine.colors["blue"]
+                border_color=game_engine.colors["blue"] if game_engine.coin_counter >= item.cost else game_engine.colors["red"]
             )
             
+            # Place in grid
+            game_engine.layout_manager.grid_place(STATE_SHOP, item_button, row, 1)
             game_engine.ui_elements[STATE_SHOP]["item_buttons"].append((item, item_button))
         
         game_engine._start_transition(STATE_SHOP)

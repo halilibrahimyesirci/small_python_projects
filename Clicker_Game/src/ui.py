@@ -348,7 +348,10 @@ class Slider:
         self.font = font
         self.label = label
         self.dragging = False
-        self.handle_rect = pygame.Rect(0, 0, 20, rect.height)
+        
+        # Make the handle height match the slider height for better usability
+        self.handle_width = 20
+        self.handle_rect = pygame.Rect(0, 0, self.handle_width, rect.height)
         self._update_handle_position()
         
     def _update_handle_position(self):
@@ -364,6 +367,17 @@ class Slider:
         if self.handle_rect.collidepoint(mouse_pos):
             if mouse_pressed:
                 self.dragging = True
+        # Allow clicking anywhere on the slider to move the handle directly
+        elif self.rect.collidepoint(mouse_pos) and mouse_pressed:
+            # Calculate new handle position based on mouse click
+            rel_x = max(0, min(mouse_pos[0] - self.rect.x, self.rect.width - self.handle_rect.width))
+            self.handle_rect.x = self.rect.x + rel_x
+            
+            # Update value based on handle position
+            value_percent = rel_x / (self.rect.width - self.handle_rect.width)
+            self.value = self.min_value + value_percent * (self.max_value - self.min_value)
+            self.dragging = True
+            return True
         
         # Stop dragging if mouse released
         if not mouse_pressed:
@@ -387,7 +401,13 @@ class Slider:
         # Draw background bar
         pygame.draw.rect(surface, (50, 50, 50), self.rect)
         
-        # Draw handle
+        # Draw filled portion of the slider
+        value_percent = (self.value - self.min_value) / (self.max_value - self.min_value)
+        fill_width = int(self.rect.width * value_percent)
+        fill_rect = pygame.Rect(self.rect.x, self.rect.y, fill_width, self.rect.height)
+        pygame.draw.rect(surface, (100, 100, 150), fill_rect)
+        
+        # Draw handle with increased size for better usability
         pygame.draw.rect(surface, self.handle_color, self.handle_rect)
         
         # Draw border

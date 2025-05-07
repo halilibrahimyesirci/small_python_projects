@@ -253,15 +253,16 @@ class GameEngine:
         playing_container = self.layout_manager.get_container(STATE_PLAYING)
         self.layout_manager.grid_configure(STATE_PLAYING, 7, 3)  # 7 rows, 3 columns
         
+        # Centered click button with increased size for better usability
         click_button = Button(
-            pygame.Rect(0, 0, 200, 100),  # Placeholder rect
+            pygame.Rect(0, 0, 240, 120),  # Bigger button size
             "Click Me!",
             self.fonts["large"],
             self.colors["button"],
             border_width=3,
             border_color=self.colors["blue"]
         )
-        self.layout_manager.grid_place(STATE_PLAYING, click_button, 3, 1)  # Center row and column
+        self.layout_manager.grid_place(STATE_PLAYING, click_button, 3, 1, sticky="nsew")  # Center with stretching
         self.ui_elements[STATE_PLAYING]["click_button"] = click_button
         
         # Progress bar at bottom
@@ -274,6 +275,30 @@ class GameEngine:
         )
         self.layout_manager.grid_place(STATE_PLAYING, progress_bar, 6, 0, 1, 3, "we")  # Bottom row, span all columns
         self.ui_elements[STATE_PLAYING]["progress_bar"] = progress_bar
+        
+        # Money counter (left bottom corner)
+        money_counter = Button(
+            pygame.Rect(0, 0, 160, 40),
+            "Coins: 0",
+            self.fonts["medium"],
+            {"normal": (50, 50, 60), "hover": (60, 60, 70), "clicked": (70, 70, 80)},
+            border_width=2,
+            border_color=self.colors["gold"]
+        )
+        self.layout_manager.grid_place(STATE_PLAYING, money_counter, 5, 0, sticky="w")  # Bottom left
+        self.ui_elements[STATE_PLAYING]["money_counter"] = money_counter
+        
+        # Level progress indicator (right bottom corner)
+        level_indicator = Button(
+            pygame.Rect(0, 0, 160, 40),
+            "Level: 1",
+            self.fonts["medium"],
+            {"normal": (50, 50, 60), "hover": (60, 60, 70), "clicked": (70, 70, 80)},
+            border_width=2,
+            border_color=self.colors["blue"]
+        )
+        self.layout_manager.grid_place(STATE_PLAYING, level_indicator, 5, 2, sticky="e")  # Bottom right
+        self.ui_elements[STATE_PLAYING]["level_indicator"] = level_indicator
         
         # Combo meter at top
         combo_meter = ComboMeter(
@@ -506,12 +531,25 @@ class GameEngine:
         self.layout_manager.grid_place(STATE_SETTINGS, settings_back_button, 9, 2)
         self.ui_elements[STATE_SETTINGS]["back_button"] = settings_back_button
         
-        # Shop UI initialization
+        # Shop UI initialization - Using a grid layout for shop items
         shop_container = self.layout_manager.get_container(STATE_SHOP)
-        self.layout_manager.grid_configure(STATE_SHOP, 8, 3)
+        # Use more rows to accommodate more shop items without overflow
+        self.layout_manager.grid_configure(STATE_SHOP, 12, 3)
         
         # Initialize shop item buttons list
         self.ui_elements[STATE_SHOP]["item_buttons"] = []
+        
+        # Coin display at top of shop
+        coin_display = Button(
+            pygame.Rect(0, 0, 200, 40),
+            "Coins: 0",
+            self.fonts["medium"],
+            {"normal": (60, 60, 40), "hover": (60, 60, 40), "clicked": (60, 60, 40)},
+            border_width=2,
+            border_color=self.colors["gold"]
+        )
+        self.layout_manager.grid_place(STATE_SHOP, coin_display, 1, 1)
+        self.ui_elements[STATE_SHOP]["coin_display"] = coin_display
         
         # Back button for shop
         shop_back_button = Button(
@@ -522,7 +560,7 @@ class GameEngine:
             border_width=2,
             border_color=self.colors["red"]
         )
-        self.layout_manager.grid_place(STATE_SHOP, shop_back_button, 7, 1)
+        self.layout_manager.grid_place(STATE_SHOP, shop_back_button, 11, 1)  # Last row
         self.ui_elements[STATE_SHOP]["back_button"] = shop_back_button
         
         # Pause menu UI - Using grid layout
