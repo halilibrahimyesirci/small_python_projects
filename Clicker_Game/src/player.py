@@ -16,26 +16,29 @@ class Player:
         self.upgrade_points = 0
         self.total_clicks = 0
         
-        # Coin upgrade stats
+        # Coin and shop related stats
+        self.coins = 0
         self.coin_upgrade_level = 0
         self.coin_upgrade_max_level = 5
+        self.passive_income = 0  # Coins generated per second
+        self.coin_multiplier = 1  # Multiplier for coin drops
         
-        # Upgradable stats
+        # Upgradable stats - initial values intentionally reduced for V0.3.3
         self.stats = {
             "click_power": {
                 "level": 0,
                 "value": 1,  # Base clicks per click
-                "max_level": 5
+                "max_level": 10
             },
             "critical_chance": {
                 "level": 0,
-                "value": 0.1,  # 10% chance by default
-                "max_level": 5
+                "value": 0.05,  # 5% chance by default (reduced from 10%)
+                "max_level": 10
             },
             "critical_multiplier": {
                 "level": 0,
-                "value": 2,  # Critical clicks worth 2x
-                "max_level": 5
+                "value": 1.5,  # Critical clicks worth 1.5x (reduced from 2x)
+                "max_level": 10
             }
         }
         
@@ -50,7 +53,10 @@ class Player:
             "upgrade_points": self.upgrade_points,
             "total_clicks": self.total_clicks,
             "stats": self.stats,
-            "coin_upgrade_level": self.coin_upgrade_level
+            "coin_upgrade_level": self.coin_upgrade_level,
+            "coins": self.coins,
+            "passive_income": self.passive_income,
+            "coin_multiplier": self.coin_multiplier
         }
         
         # Ensure data directory exists
@@ -83,8 +89,11 @@ class Player:
             self.total_clicks = player_data["total_clicks"]
             self.stats = player_data["stats"]
             
-            # Load coin upgrade level (default to 0 if not in save file)
+            # Load coin and shop related stats (default values if not in save file)
             self.coin_upgrade_level = player_data.get("coin_upgrade_level", 0)
+            self.coins = player_data.get("coins", 0)
+            self.passive_income = player_data.get("passive_income", 0)
+            self.coin_multiplier = player_data.get("coin_multiplier", 1)
             
             logger.info("Player progress loaded successfully")
             return True
@@ -99,14 +108,17 @@ class Player:
         self.upgrade_points = 0
         self.total_clicks = 0
         self.coin_upgrade_level = 0
+        self.coins = 0
+        self.passive_income = 0
+        self.coin_multiplier = 1
         
         # Reset stats to initial values
         for stat in self.stats:
             self.stats[stat]["level"] = 0
         
         self.stats["click_power"]["value"] = 1
-        self.stats["critical_chance"]["value"] = 0.1
-        self.stats["critical_multiplier"]["value"] = 2
+        self.stats["critical_chance"]["value"] = 0.05  # Reduced from 0.1
+        self.stats["critical_multiplier"]["value"] = 1.5  # Reduced from 2
         
         logger.info("Player progress reset")
         return True
@@ -117,8 +129,17 @@ class Player:
             self.level += 1
             self.upgrade_points += 1
             
+            # Award coins for level completion
+            level_coins = 5 * self.level
+            self.coins += level_coins
+            logger.info(f"Awarded {level_coins} coins for completing level {self.level-1}")
+            
             if self.level > self.highest_level:
                 self.highest_level = self.level
+                # Bonus coins for reaching a new highest level
+                bonus_coins = 10 * self.level
+                self.coins += bonus_coins
+                logger.info(f"Awarded {bonus_coins} bonus coins for reaching new highest level")
                 
             logger.info(f"Level {self.level - 1} completed. New level: {self.level}")
             return True
@@ -151,13 +172,13 @@ class Player:
         stat["level"] += 1
         self.upgrade_points -= 1
         
-        # Update the value based on the stat type
+        # Update the value based on the stat type - V0.3.3 has more balanced progression
         if stat_name == "click_power":
-            stat["value"] = 1 + stat["level"]  # 1-6 clicks per click
+            stat["value"] = 1 + (stat["level"] * 0.5)  # 1-6 clicks per click (slower progression)
         elif stat_name == "critical_chance":
-            stat["value"] = 0.1 + (stat["level"] * 0.05)  # 10-35% chance
+            stat["value"] = 0.05 + (stat["level"] * 0.03)  # 5-35% chance (slower progression)
         elif stat_name == "critical_multiplier":
-            stat["value"] = 2 + stat["level"]  # 2-7x multiplier
+            stat["value"] = 1.5 + (stat["level"] * 0.3)  # 1.5-4.5x multiplier (slower progression)
             
         logger.info(f"Upgraded {stat_name} to level {stat['level']}")
         return True
@@ -181,3 +202,17 @@ class Player:
             
         boss_levels = self.resource_manager.get_config_value("boss_levels")
         return self.level in boss_levels
+        
+    def add_passive_income(self, time_delta):
+        """Add passive income based on elapsed time"""
+        if self.passive_income > 0:
+            earned_coins = self.passive_income * time_delta
+            self.coins += earned_coins
+            return earned_coins
+        return 0
+        
+    def collect_coin(self, value=1):
+        """Collect a coin with the given value, applying multipliers"""
+        coin_value = value * self.coin_multiplier
+        self.coins += coin_value
+        return coin_value

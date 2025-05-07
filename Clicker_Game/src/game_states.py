@@ -20,9 +20,10 @@ STATE_UPGRADE = "UPGRADE"
 STATE_PAUSE = "PAUSE"
 STATE_SETTINGS = "SETTINGS"
 STATE_ABILITY_SELECT = "ABILITY_SELECT"
+STATE_ESC_MENU = "ESC_MENU"
 
 # Game constants
-CLICK_DELAY = 0.15  # Delay between clicks in seconds (match with engine.py)
+CLICK_DELAY = 0.45  # Delay between clicks in seconds (match with engine.py)
 
 # Utility functions for game states
 
