@@ -48,11 +48,15 @@ class GameEngine:
         
         # Create screen and clock
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("RPG Clicker V0.3.4")
+        pygame.display.set_caption("RPG Clicker V0.3.5")
         self.clock = pygame.time.Clock()
         
         # ESC key tracking
         self.last_esc_press = 0  # Initialize the last_esc_press attribute to track ESC key timing
+        
+        # Create UI manager for collision detection
+        from src.ui import UIManager
+        self.ui_manager = UIManager(self.width, self.height)
         
         # Create fonts
         self.fonts = {
@@ -179,7 +183,7 @@ class GameEngine:
         
     def _init_ui(self):
         """Initialize UI elements"""
-        from src.ui import Button, ProgressBar, ComboMeter, ParticleSystem, Slider
+        from src.ui import Button, ProgressBar, ComboMeter, ParticleSystem, Slider, UIElement
         
         # Create UI containers for each state
         self.ui_elements = {
@@ -563,6 +567,9 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
+        # Register all UI elements with the UI manager for collision detection
+        self._register_ui_elements_with_manager()
+        
     def _apply_audio_settings(self):
         """Apply audio settings"""
         pygame.mixer.music.set_volume(self.audio_settings["music_volume"])
@@ -829,8 +836,12 @@ class GameEngine:
             # Reset win stats flag
             self.win_stats_updated = False
             
-            # Transition to upgrade
-            self._start_transition(STATE_UPGRADE)
+            # Only go to upgrade screen after boss levels
+            if self.current_level and self.current_level.is_boss:
+                self._start_transition(STATE_UPGRADE)
+            else:
+                self._start_transition(STATE_MENU)
+                logger.info("Returning to menu after level completion")
             
     def _render_game_over_win(self):
         """Render game over (win) state"""
@@ -1057,3 +1068,33 @@ class GameEngine:
         )
         
         self.ui_elements[STATE_ABILITY_SELECT]["continue_button"] = continue_button
+        
+    def _register_ui_elements_with_manager(self):
+        """Register all UI elements with the UI manager for collision detection"""
+        # Clear existing elements
+        self.ui_manager.elements = []
+        
+        # Register UI elements from each state
+        for state, elements in self.ui_elements.items():
+            for key, element in elements.items():
+                # Skip particle systems and other non-UI elements
+                if key == "particles" or not hasattr(element, "rect"):
+                    continue
+                
+                # Handle collections of UI elements (like buttons in lists of tuples)
+                if isinstance(element, list):
+                    for item in element:
+                        if isinstance(item, tuple) and len(item) == 2 and hasattr(item[1], "rect"):
+                            ui_element = self.ui_manager.convert_to_ui_element(item[1], f"{state}_{key}")
+                            self.ui_manager.add_element(ui_element)
+                else:
+                    # Register individual UI element
+                    ui_element = self.ui_manager.convert_to_ui_element(element, f"{state}_{key}")
+                    self.ui_manager.add_element(ui_element)
+        
+        # Adjust all positions to prevent collisions and stay within screen boundaries
+        self.ui_manager.adjust_all_positions()
+        
+        # Update original elements with adjusted positions
+        for ui_element in self.ui_manager.elements:
+            self.ui_manager.update_element_position(ui_element)
