@@ -290,6 +290,78 @@ class TextParticle:
         surface.blit(text_surf, (self.x, self.y))
 
 
+class Slider:
+    """Interactive slider UI element"""
+    
+    def __init__(self, rect, initial_value, min_value, max_value, bg_color, handle_color, font, label=None):
+        self.rect = rect
+        self.value = initial_value
+        self.min_value = min_value
+        self.max_value = max_value
+        self.bg_color = bg_color
+        self.handle_color = handle_color
+        self.font = font
+        self.label = label
+        self.dragging = False
+        self.handle_rect = pygame.Rect(0, 0, 20, rect.height)
+        self._update_handle_position()
+        
+    def _update_handle_position(self):
+        """Update the handle position based on the current value"""
+        value_percent = (self.value - self.min_value) / (self.max_value - self.min_value)
+        handle_x = self.rect.x + int(value_percent * (self.rect.width - self.handle_rect.width))
+        self.handle_rect.x = handle_x
+        self.handle_rect.y = self.rect.y
+        
+    def update(self, mouse_pos, mouse_pressed, mouse_released=False):
+        """Update slider state based on mouse interaction"""
+        # Check if mouse is over handle or slider
+        if self.handle_rect.collidepoint(mouse_pos):
+            if mouse_pressed:
+                self.dragging = True
+        
+        # Stop dragging if mouse released
+        if not mouse_pressed:
+            self.dragging = False
+            
+        # Update position while dragging
+        if self.dragging:
+            mouse_x = mouse_pos[0]
+            rel_x = max(0, min(mouse_x - self.rect.x, self.rect.width - self.handle_rect.width))
+            self.handle_rect.x = self.rect.x + rel_x
+            
+            # Update value based on handle position
+            value_percent = rel_x / (self.rect.width - self.handle_rect.width)
+            self.value = self.min_value + value_percent * (self.max_value - self.min_value)
+            return True  # Value changed
+            
+        return False
+        
+    def draw(self, surface):
+        """Draw the slider on the given surface"""
+        # Draw background bar
+        pygame.draw.rect(surface, (50, 50, 50), self.rect)
+        
+        # Draw handle
+        pygame.draw.rect(surface, self.handle_color, self.handle_rect)
+        
+        # Draw border
+        pygame.draw.rect(surface, (200, 200, 200), self.rect, 2)
+        
+        # Draw label and value if provided
+        if self.label and self.font:
+            # Draw label above slider
+            label_surf = self.font.render(self.label, True, (255, 255, 255))
+            label_rect = label_surf.get_rect(midtop=(self.rect.centerx, self.rect.y - 25))
+            surface.blit(label_surf, label_rect)
+            
+            # Draw value below slider
+            value_text = f"{int(self.value * 100)}%"
+            value_surf = self.font.render(value_text, True, (255, 255, 255))
+            value_rect = value_surf.get_rect(midtop=(self.rect.centerx, self.rect.bottom + 5))
+            surface.blit(value_surf, value_rect)
+
+
 def display_text(surface, text, font, color, x, y, center=False):
     """Helper function to draw text on a surface"""
     text_surf = font.render(text, True, color)

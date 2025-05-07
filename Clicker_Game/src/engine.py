@@ -5,17 +5,22 @@ import random
 import logging
 import os
 import math
-
-# Game states
-STATE_MENU = "MENU"
-STATE_PLAYING = "PLAYING"
-STATE_GAME_OVER_WIN = "GAME_OVER_WIN"
-STATE_GAME_OVER_LOSE = "GAME_OVER_LOSE"
-STATE_UPGRADE = "UPGRADE"
-STATE_PAUSE = "PAUSE"
+from src.entities.coin import Coin
+from src.game_states import (
+    STATE_MENU, STATE_PLAYING, STATE_GAME_OVER_WIN, STATE_GAME_OVER_LOSE, 
+    STATE_UPGRADE, STATE_PAUSE, STATE_SETTINGS, STATE_ABILITY_SELECT,
+    update_menu, render_menu,
+    update_playing, render_playing,
+    update_settings, render_settings,
+    update_upgrade, render_upgrade,
+    update_ability_select, render_ability_select
+)
 
 # State transition duration in seconds
 TRANSITION_DURATION = 0.3
+
+# Click delay in seconds
+CLICK_DELAY = 0.15  # Add delay between clicks
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +43,7 @@ class GameEngine:
         
         # Create screen and clock
         self.screen = pygame.display.set_mode((self.width, self.height))
-        pygame.display.set_caption("RPG Clicker V0.3.1")
+        pygame.display.set_caption("RPG Clicker V0.3.2")
         self.clock = pygame.time.Clock()
         
         # Create fonts
@@ -58,6 +63,7 @@ class GameEngine:
             "yellow": (255, 255, 0),  # Make sure yellow is defined for critical hits
             "orange": (255, 165, 0),
             "purple": (128, 0, 128),
+            "gold": (255, 215, 0),
             "button": {
                 "normal": (100, 100, 255),
                 "hover": (150, 150, 255),
@@ -75,6 +81,29 @@ class GameEngine:
         self.start_ticks = 0
         self.current_time = 0
         self.debug_mode = False
+        self.last_click_time = 0  # Track time of last click for click delay
+        self.coins = []  # Store falling coins
+        self.coin_spawn_timer = 0
+        self.coin_spawn_rate = 3  # Coins per second
+        self.coin_counter = 0  # Money earned from coins
+        
+        # Player ability variables
+        self.player_abilities = {
+            "rapid_clicking": {"active": False, "duration": 0, "cooldown": 0, "description": "Click rapidly without delay"},
+            "auto_clicker": {"active": False, "duration": 0, "cooldown": 0, "description": "Automatic clicking for a duration"},
+            "double_coins": {"active": False, "duration": 0, "cooldown": 0, "description": "Coins give double value"},
+            "coin_magnet": {"active": False, "duration": 0, "cooldown": 0, "description": "Attract coins from longer distance"},
+            "crit_master": {"active": False, "duration": 0, "cooldown": 0, "description": "Increased critical chance"},
+            "boss_weakener": {"active": False, "duration": 0, "cooldown": 0, "description": "Boss takes more damage"}
+        }
+        self.active_abilities = []  # List of currently active special abilities
+        
+        # Audio settings
+        self.audio_settings = {
+            "sound_volume": 0.7,  # 0.0 to 1.0
+            "music_volume": 0.5,  # 0.0 to 1.0
+            "current_music": "mid.mp3"  # default track
+        }
         
         # FPS monitoring
         self.fps_history = []
@@ -92,7 +121,9 @@ class GameEngine:
         self._load_resources()
         
         # Create level
-        self.current_level = self.level_manager.create_level(self.player.level)
+        self.current_level = None
+        if self.level_manager:
+            self.current_level = self.level_manager.create_level(self.player.level)
         
         # UI initialization will be done in the respective state functions
         self.ui_elements = {}
@@ -100,6 +131,9 @@ class GameEngine:
         
         # Create transition surface
         self.transition_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        
+        # Apply initial audio settings
+        self._apply_audio_settings()
         
         logger.info("Game engine initialized")
         
@@ -135,7 +169,7 @@ class GameEngine:
         
     def _init_ui(self):
         """Initialize UI elements"""
-        from src.ui import Button, ProgressBar, ComboMeter, ParticleSystem
+        from src.ui import Button, ProgressBar, ComboMeter, ParticleSystem, Slider
         
         # Create UI containers for each state
         self.ui_elements = {
@@ -144,7 +178,9 @@ class GameEngine:
             STATE_GAME_OVER_WIN: {},
             STATE_GAME_OVER_LOSE: {},
             STATE_UPGRADE: {},
-            STATE_PAUSE: {}
+            STATE_PAUSE: {},
+            STATE_SETTINGS: {},
+            STATE_ABILITY_SELECT: {}
         }
         
         # Menu UI
@@ -152,6 +188,17 @@ class GameEngine:
         self.ui_elements[STATE_MENU]["play_button"] = Button(
             play_button_rect,
             "Play",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["blue"]
+        )
+        
+        # Add settings button to menu
+        settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 60, 200, 50)
+        self.ui_elements[STATE_MENU]["settings_button"] = Button(
+            settings_button_rect,
+            "Settings",
             self.fonts["large"],
             self.colors["button"],
             border_width=3,
@@ -266,6 +313,22 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
+        # Coin upgrade button
+        coin_upgrade_rect = pygame.Rect(
+            self.width // 2 + padding,
+            start_y + btn_height + padding,
+            btn_width,
+            btn_height
+        )
+        self.ui_elements[STATE_UPGRADE]["coin_upgrade_button"] = Button(
+            coin_upgrade_rect,
+            "Coin Drop",
+            self.fonts["medium"],
+            self.colors["button"],
+            border_width=2,
+            border_color=self.colors["gold"]
+        )
+        
         # Continue button (after upgrades)
         upgrade_continue_rect = pygame.Rect(
             self.width // 2 - 100,
@@ -283,7 +346,7 @@ class GameEngine:
         )
         
         # Pause UI
-        resume_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 30, 200, 50)
+        resume_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 - 60, 200, 50)
         self.ui_elements[STATE_PAUSE]["resume_button"] = Button(
             resume_button_rect,
             "Resume",
@@ -293,7 +356,17 @@ class GameEngine:
             border_color=self.colors["blue"]
         )
         
-        quit_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 30, 200, 50)
+        settings_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2, 200, 50)
+        self.ui_elements[STATE_PAUSE]["settings_button"] = Button(
+            settings_button_rect,
+            "Settings",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["blue"]
+        )
+        
+        quit_button_rect = pygame.Rect(self.width // 2 - 100, self.height // 2 + 60, 200, 50)
         self.ui_elements[STATE_PAUSE]["quit_button"] = Button(
             quit_button_rect,
             "Quit",
@@ -302,6 +375,94 @@ class GameEngine:
             border_width=3,
             border_color=self.colors["red"]
         )
+        
+        # Settings UI
+        slider_width = 300
+        slider_height = 30
+        slider_x = self.width // 2 - slider_width // 2
+        
+        # Sound volume slider
+        sound_slider_rect = pygame.Rect(slider_x, self.height // 3, slider_width, slider_height)
+        self.ui_elements[STATE_SETTINGS]["sound_slider"] = Slider(
+            sound_slider_rect,
+            self.audio_settings["sound_volume"],
+            0.0, 1.0,
+            self.colors["button"]["normal"],
+            self.colors["button"]["hover"],
+            self.fonts["medium"],
+            "Sound Volume"
+        )
+        
+        # Music volume slider
+        music_slider_rect = pygame.Rect(slider_x, self.height // 3 + 60, slider_width, slider_height)
+        self.ui_elements[STATE_SETTINGS]["music_slider"] = Slider(
+            music_slider_rect,
+            self.audio_settings["music_volume"],
+            0.0, 1.0,
+            self.colors["button"]["normal"],
+            self.colors["button"]["hover"],
+            self.fonts["medium"],
+            "Music Volume"
+        )
+        
+        # Music selection buttons
+        music_btn_width = 180
+        music_btn_height = 40
+        music_btn_x = self.width // 2 - music_btn_width // 2
+        
+        # Create music selection buttons
+        music_files = ["mid.mp3", "best_one.mp3", "energitic_stuff.mp3", 
+                       "mhysteric_type.mp3", "very_energitic_stuff.mp3"]
+        
+        self.ui_elements[STATE_SETTINGS]["music_buttons"] = []
+        
+        for i, music_file in enumerate(music_files):
+            music_btn_rect = pygame.Rect(
+                music_btn_x,
+                self.height // 3 + 120 + i * (music_btn_height + 10),
+                music_btn_width,
+                music_btn_height
+            )
+            
+            # Remove .mp3 extension for display
+            display_name = music_file.replace(".mp3", "")
+            
+            music_btn = Button(
+                music_btn_rect,
+                display_name,
+                self.fonts["medium"],
+                self.colors["button"],
+                border_width=2,
+                border_color=self.colors["purple"]
+            )
+            
+            self.ui_elements[STATE_SETTINGS]["music_buttons"].append((music_file, music_btn))
+        
+        # Back button
+        back_button_rect = pygame.Rect(
+            self.width // 2 - 100,
+            self.height - 100,
+            200,
+            50
+        )
+        self.ui_elements[STATE_SETTINGS]["back_button"] = Button(
+            back_button_rect,
+            "Back",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["blue"]
+        )
+        
+        # Ability Selection UI
+        self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"] = []
+        self.ui_elements[STATE_ABILITY_SELECT]["selected_abilities"] = []
+        
+    def _apply_audio_settings(self):
+        """Apply audio settings"""
+        pygame.mixer.music.set_volume(self.audio_settings["music_volume"])
+        for sound in self.resource_manager.sounds.values():
+            sound.set_volume(self.audio_settings["sound_volume"])
         
     def _start_transition(self, to_state):
         """Start a transition to a new state"""
@@ -402,17 +563,21 @@ class GameEngine:
     def _update(self, time_delta):
         """Update game logic based on current state"""
         if self.game_state == STATE_MENU:
-            self._update_menu(time_delta)
+            update_menu(self, time_delta)
         elif self.game_state == STATE_PLAYING:
-            self._update_playing(time_delta)
+            update_playing(self, time_delta)
         elif self.game_state == STATE_GAME_OVER_WIN:
             self._update_game_over_win(time_delta)
         elif self.game_state == STATE_GAME_OVER_LOSE:
             self._update_game_over_lose(time_delta)
         elif self.game_state == STATE_UPGRADE:
-            self._update_upgrade(time_delta)
+            update_upgrade(self, time_delta)
         elif self.game_state == STATE_PAUSE:
             self._update_pause(time_delta)
+        elif self.game_state == STATE_SETTINGS:
+            update_settings(self, time_delta)
+        elif self.game_state == STATE_ABILITY_SELECT:
+            update_ability_select(self, time_delta)
             
     def _render(self):
         """Render the current game state"""
@@ -425,23 +590,27 @@ class GameEngine:
         
         # Render based on current state
         if self.game_state == STATE_MENU:
-            self._render_menu()
+            render_menu(self)
         elif self.game_state == STATE_PLAYING:
-            self._render_playing()
+            render_playing(self)
         elif self.game_state == STATE_GAME_OVER_WIN:
             self._render_game_over_win()
         elif self.game_state == STATE_GAME_OVER_LOSE:
             self._render_game_over_lose()
         elif self.game_state == STATE_UPGRADE:
-            self._render_upgrade()
+            render_upgrade(self)
         elif self.game_state == STATE_PAUSE:
             self._render_pause()
+        elif self.game_state == STATE_SETTINGS:
+            render_settings(self)
+        elif self.game_state == STATE_ABILITY_SELECT:
+            render_ability_select(self)
             
         # Draw version info
         from src.ui import display_text
         display_text(
             self.screen,
-            "V0.3.1",
+            "V0.3.2",
             self.fonts["small"],
             self.colors["white"],
             self.width - 40,
@@ -493,364 +662,94 @@ class GameEngine:
                 center=False
             )
             y += 20
-            
-    def _update_menu(self, time_delta):
-        """Update menu state"""
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
-        
-        # Update play button
-        play_button = self.ui_elements[STATE_MENU]["play_button"]
-        if play_button.update(mouse_pos, mouse_clicked, self.current_time):
-            self._start_transition(STATE_PLAYING)
-            self.clicks = 0
-            self.start_ticks = pygame.time.get_ticks()
-            
-            # Play appropriate music
-            if self.current_level.is_boss:
-                self.resource_manager.play_music("boss")
-            else:
-                self.resource_manager.play_music("gameplay")
-                
-            logger.info(f"Starting level {self.current_level.level_number}")
-            
-    def _render_menu(self):
-        """Render menu state"""
-        from src.ui import display_text
-        
-        # Game title with simple animation
-        title_y_offset = math.sin(self.current_time * 2) * 5  # Gentle float effect
-        display_text(
-            self.screen,
-            "RPG Clicker",
-            self.fonts["large"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 3 + title_y_offset,
-            center=True
-        )
-        
-        # Level info
-        if self.current_level:
-            display_text(
-                self.screen,
-                self.current_level.get_description(),
-                self.fonts["medium"],
-                self.colors["white"],
-                self.width // 2,
-                self.height // 2 - 50,
-                center=True
-            )
-            
-            display_text(
-                self.screen,
-                self.current_level.get_objective_text(),
-                self.fonts["medium"],
-                self.colors["white"],
-                self.width // 2,
-                self.height // 2 - 20,
-                center=True
-            )
-        
-        # Draw play button
-        self.ui_elements[STATE_MENU]["play_button"].draw(self.screen)
-        
-        # Player stats
-        stats_y = self.height - 80
-        display_text(
-            self.screen,
-            f"Highest Level: {self.player.highest_level}",
-            self.fonts["small"],
-            self.colors["white"],
-            self.width // 2,
-            stats_y,
-            center=True
-        )
-        
-        display_text(
-            self.screen,
-            f"Click Power: {self.player.stats['click_power']['value']}",
-            self.fonts["small"],
-            self.colors["white"],
-            self.width // 4,
-            stats_y + 20,
-            center=True
-        )
-        
-        display_text(
-            self.screen,
-            f"Crit Chance: {int(self.player.stats['critical_chance']['value'] * 100)}%",
-            self.fonts["small"],
-            self.colors["white"],
-            self.width // 2,
-            stats_y + 20,
-            center=True
-        )
-        
-        display_text(
-            self.screen,
-            f"Crit Multiplier: {self.player.stats['critical_multiplier']['value']}x",
-            self.fonts["small"],
-            self.colors["white"],
-            3 * self.width // 4,
-            stats_y + 20,
-            center=True
-        )
-    
-    def _update_playing(self, time_delta):
-        """Update playing state"""
-        from src.ui import ClickParticle, TextParticle
-        
-        # Get mouse state
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_pressed = pygame.mouse.get_pressed()[0]  # Left button
-        
-        # Update click button
-        click_button = self.ui_elements[STATE_PLAYING]["click_button"]
-        if self.current_level.is_boss and self.current_level.ability_active:
-            # Handle boss abilities
-            if self.current_level.boss_ability == "move_button":
-                # Randomly move button if ability is active
-                if random.random() < 0.05:  # 5% chance per frame
-                    click_button.rect.x = random.randint(50, self.width - 250)
-                    click_button.rect.y = random.randint(100, self.height - 150)
-                    
-            elif self.current_level.boss_ability == "click_block":
-                # Block some clicks (implemented in the button click handling below)
-                pass
-                
-            # Display active boss ability
-            from src.ui import display_text
-            ability_name = self.current_level.boss_ability.replace("_", " ").upper()
-            display_text(
-                self.screen,
-                f"BOSS ABILITY: {ability_name}",
-                self.fonts["medium"],
-                self.colors["red"],
-                self.width // 2,
-                80,
-                center=True
-            )
-        
-        # Check if button was clicked
-        button_clicked = click_button.update(mouse_pos, mouse_pressed, self.current_time)
-        if button_clicked:
-            # Process boss ability that blocks clicks
-            if (self.current_level.is_boss and 
-                self.current_level.ability_active and 
-                self.current_level.boss_ability == "click_block" and
-                random.random() < 0.5):  # 50% chance to block
-                
-                # Click blocked
-                logger.info("Click blocked by boss ability")
-                
-                # Show blocked text
-                text_particle = TextParticle(
-                    mouse_pos[0],
-                    mouse_pos[1] - 20,
-                    "BLOCKED!",
-                    self.fonts["medium"],
-                    self.colors["red"],
-                    speed=1,
-                    life=0.8
-                )
-                self.ui_elements[STATE_PLAYING]["particles"].add_particle(text_particle)
-            else:
-                # Regular click processing
-                combo_meter = self.ui_elements[STATE_PLAYING]["combo_meter"]
-                combo_meter.add_click(self.current_time)
-                combo_bonus = combo_meter.get_combo_bonus()
-                
-                # Determine if this is a critical click
-                crit_chance = self.player.stats["critical_chance"]["value"]
-                is_critical = random.random() < crit_chance
-                
-                # Calculate click value
-                click_power = self.player.stats["click_power"]["value"]
-                crit_multiplier = self.player.stats["critical_multiplier"]["value"] if is_critical else 1
-                combo_multiplier = 1 + combo_bonus
-                
-                click_value = int(click_power * crit_multiplier * combo_multiplier)
-                
-                # Update clicks
-                self.clicks += click_value
-                self.player.total_clicks += click_value
-                
-                # Play sound
-                if is_critical:
-                    self.resource_manager.play_sound("critical")
-                else:
-                    self.resource_manager.play_sound("click")
-                
-                # Add visual feedback
-                # Text particle for click value
-                text_color = self.colors["yellow"] if is_critical else self.colors["white"]
-                text_particle = TextParticle(
-                    mouse_pos[0],
-                    mouse_pos[1] - 20,
-                    f"+{click_value}",
-                    self.fonts["medium"] if is_critical else self.fonts["small"],
-                    text_color,
-                    speed=1.5 if is_critical else 1,
-                    life=1.0
-                )
-                self.ui_elements[STATE_PLAYING]["particles"].add_particle(text_particle)
-                
-                # Add click particles - more diverse particles with V0.3.1
-                particle_colors = [(255, 255, 0)] if is_critical else [
-                    (150, 150, 255), 
-                    (100, 100, 255), 
-                    (200, 200, 255)
-                ]
-                
-                for _ in range(5 if is_critical else 3):
-                    particle_color = random.choice(particle_colors)
-                    particle = ClickParticle(
-                        mouse_pos[0],
-                        mouse_pos[1],
-                        particle_color,
-                        size=3 + random.randint(0, 3),
-                        speed=2 + random.random() * 2,
-                        life=0.5 + random.random() * 0.5
-                    )
-                    self.ui_elements[STATE_PLAYING]["particles"].add_particle(particle)
-                
-                # Update boss health if this is a boss level
-                if self.current_level.is_boss:
-                    boss_defeated = self.current_level.damage_boss(click_value)
-                    if boss_defeated:
-                        self._start_transition(STATE_GAME_OVER_WIN)
-                        self.resource_manager.play_sound("level_up")
-                        logger.info(f"Boss defeated! Level {self.current_level.level_number} completed.")
-                
-        # Update combo meter
-        combo_meter = self.ui_elements[STATE_PLAYING]["combo_meter"]
-        combo_meter.update(self.current_time)
-        
-        # Update particles
-        self.ui_elements[STATE_PLAYING]["particles"].update()
-        
-        # Update progress bar
-        progress_bar = self.ui_elements[STATE_PLAYING]["progress_bar"]
-        if self.current_level.is_boss:
-            # For boss levels, show boss health
-            progress_bar.set_progress(1 - self.current_level.get_health_percent())
-        else:
-            # For regular levels, show progress toward click target
-            progress_percent = min(1.0, self.clicks / self.current_level.click_target)
-            progress_bar.set_progress(progress_percent)
-        
-    def _render_playing(self):
-        """Render playing state"""
-        from src.ui import display_text
-        
-        # Draw click button
-        self.ui_elements[STATE_PLAYING]["click_button"].draw(self.screen)
-        
-        # Draw progress bar
-        self.ui_elements[STATE_PLAYING]["progress_bar"].draw(self.screen)
-        
-        # Draw combo meter if active
-        combo_meter = self.ui_elements[STATE_PLAYING]["combo_meter"]
-        if combo_meter.active:
-            combo_meter.draw(self.screen)
-            
-        # Draw particles
-        self.ui_elements[STATE_PLAYING]["particles"].draw(self.screen)
         
     def _update_game_over_win(self, time_delta):
         """Update game over (win) state"""
+        from src.ui import display_text
+        
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
         
+        # Update player stats based on completion
+        if not hasattr(self, 'win_stats_updated') or not self.win_stats_updated:
+            # Update player level
+            self.player.level += 1
+            
+            # Update highest level if needed
+            if self.player.level > self.player.highest_level:
+                self.player.highest_level = self.player.level
+            
+            # Grant upgrade points
+            if self.current_level.is_boss:
+                self.player.upgrade_points += 3  # More points for boss levels
+            else:
+                self.player.upgrade_points += 1
+            
+            # Save progress
+            self.player.save_progress()
+            
+            # Flag that stats were updated
+            self.win_stats_updated = True
+            
+            logger.info(f"Win rewards granted. Player now level {self.player.level} with {self.player.upgrade_points} upgrade points")
+            
         # Update continue button
         continue_button = self.ui_elements[STATE_GAME_OVER_WIN]["continue_button"]
         if continue_button.update(mouse_pos, mouse_clicked, self.current_time):
-            # Player completed the level
-            self.player.complete_level(win=True)
-            self.player.save_progress()
+            # Create new level for next round
+            self.current_level = self.level_manager.create_level(self.player.level)
             
-            # Go to upgrade screen
-            self.game_state = STATE_UPGRADE
-            logger.info("Proceeding to upgrade screen")
+            # Reset win stats flag
+            self.win_stats_updated = False
+            
+            # Transition to upgrade
+            self._start_transition(STATE_UPGRADE)
             
     def _render_game_over_win(self):
         """Render game over (win) state"""
         from src.ui import display_text
         
-        # Display win message
-        if self.current_level.is_boss:
-            display_text(
-                self.screen,
-                f"Boss Defeated!",
-                self.fonts["large"],
-                self.colors["green"],
-                self.width // 2,
-                self.height // 3 - 50,
-                center=True
-            )
-            
-            display_text(
-                self.screen,
-                f"{self.current_level.boss_name} has been vanquished!",
-                self.fonts["medium"],
-                self.colors["white"],
-                self.width // 2,
-                self.height // 3,
-                center=True
-            )
-        else:
-            display_text(
-                self.screen,
-                "Level Complete!",
-                self.fonts["large"],
-                self.colors["green"],
-                self.width // 2,
-                self.height // 3 - 30,
-                center=True
-            )
-        
-        # Display stats
+        # Display win title
         display_text(
             self.screen,
-            f"Total Clicks: {self.clicks} / {self.current_level.click_target}",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 2 - 40,
-            center=True
-        )
-        
-        seconds_elapsed = (pygame.time.get_ticks() - self.start_ticks) / 1000
-        display_text(
-            self.screen,
-            f"Time: {seconds_elapsed:.1f}s / {self.current_level.timer_duration}s",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 2 - 10,
-            center=True
-        )
-        
-        # Display level info
-        display_text(
-            self.screen,
-            f"Level {self.current_level.level_number} Completed!",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 2 + 20,
-            center=True
-        )
-        
-        # Display reward
-        display_text(
-            self.screen,
-            "Reward: 1 Upgrade Point",
-            self.fonts["medium"],
+            "Level Complete!",
+            self.fonts["large"],
             self.colors["green"],
             self.width // 2,
-            self.height // 2 + 50,
+            self.height // 3,
+            center=True
+        )
+        
+        # Display level stats
+        display_text(
+            self.screen,
+            f"Level {self.current_level.level_number} completed with {self.clicks} clicks",
+            self.fonts["medium"],
+            self.colors["white"],
+            self.width // 2,
+            self.height // 3 + 50,
+            center=True
+        )
+        
+        # Display rewards
+        display_text(
+            self.screen,
+            f"You earned {3 if self.current_level.is_boss else 1} upgrade point{'s' if self.current_level.is_boss else ''}!",
+            self.fonts["medium"],
+            self.colors["gold"],
+            self.width // 2,
+            self.height // 3 + 80,
+            center=True
+        )
+        
+        # Display information about upgrades
+        display_text(
+            self.screen,
+            "You can spend your points to upgrade your character.",
+            self.fonts["small"],
+            self.colors["white"],
+            self.width // 2,
+            self.height // 3 + 110,
             center=True
         )
         
@@ -865,249 +764,99 @@ class GameEngine:
         # Update restart button
         restart_button = self.ui_elements[STATE_GAME_OVER_LOSE]["restart_button"]
         if restart_button.update(mouse_pos, mouse_clicked, self.current_time):
-            # Player failed the level, reset to level 1
-            self.player.complete_level(win=False)
-            self.player.save_progress()
-            
-            # Create new level 1 and go back to menu
+            # Reset level (same level number)
             self.current_level = self.level_manager.create_level(self.player.level)
-            self.game_state = STATE_MENU
-            logger.info("Restarting from level 1")
+            
+            # Reset clicks
+            self.clicks = 0
+            
+            # Transition back to game
+            self._start_transition(STATE_PLAYING)
+            logger.info(f"Restarting level {self.player.level}")
             
     def _render_game_over_lose(self):
         """Render game over (lose) state"""
         from src.ui import display_text
         
-        # Display lose message
+        # Display lose title
         display_text(
             self.screen,
-            "Game Over!",
+            "Level Failed!",
             self.fonts["large"],
             self.colors["red"],
             self.width // 2,
-            self.height // 3 - 30,
+            self.height // 3,
             center=True
         )
         
-        # Display stats
+        # Display failure message
         display_text(
             self.screen,
-            f"Clicks: {self.clicks} / {self.current_level.click_target}",
+            "You were not able to complete the objective.",
             self.fonts["medium"],
             self.colors["white"],
             self.width // 2,
-            self.height // 2 - 40,
+            self.height // 3 + 50,
             center=True
         )
         
-        # Display level info
+        # Display tip
         display_text(
             self.screen,
-            f"You reached Level {self.current_level.level_number}",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 2 - 10,
-            center=True
-        )
-        
-        display_text(
-            self.screen,
-            "You must restart from Level 1",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 2 + 20,
-            center=True
-        )
-        
-        display_text(
-            self.screen,
-            "(But you keep your upgrades!)",
+            "Try upgrading your character before trying again.",
             self.fonts["small"],
-            self.colors["green"],
+            self.colors["white"],
             self.width // 2,
-            self.height // 2 + 50,
+            self.height // 3 + 80,
             center=True
         )
         
         # Draw restart button
         self.ui_elements[STATE_GAME_OVER_LOSE]["restart_button"].draw(self.screen)
         
-    def _update_upgrade(self, time_delta):
-        """Update upgrade state"""
-        mouse_pos = pygame.mouse.get_pos()
-        mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
-        
-        # Update click power button
-        click_power_button = self.ui_elements[STATE_UPGRADE]["click_power_button"]
-        if click_power_button.update(mouse_pos, mouse_clicked, self.current_time):
-            if self.player.upgrade_stat("click_power"):
-                self.player.save_progress()
-                logger.info("Upgraded click power")
-        
-        # Update critical chance button
-        crit_chance_button = self.ui_elements[STATE_UPGRADE]["crit_chance_button"]
-        if crit_chance_button.update(mouse_pos, mouse_clicked, self.current_time):
-            if self.player.upgrade_stat("critical_chance"):
-                self.player.save_progress()
-                logger.info("Upgraded critical chance")
-        
-        # Update critical multiplier button
-        crit_mult_button = self.ui_elements[STATE_UPGRADE]["crit_mult_button"]
-        if crit_mult_button.update(mouse_pos, mouse_clicked, self.current_time):
-            if self.player.upgrade_stat("critical_multiplier"):
-                self.player.save_progress()
-                logger.info("Upgraded critical multiplier")
-        
-        # Update continue button
-        continue_button = self.ui_elements[STATE_UPGRADE]["continue_button"]
-        if continue_button.update(mouse_pos, mouse_clicked, self.current_time):
-            # Create new level and go back to menu
-            self.current_level = self.level_manager.create_level(self.player.level)
-            self.game_state = STATE_MENU
-            logger.info(f"Continuing to level {self.player.level}")
-            
-    def _render_upgrade(self):
-        """Render upgrade state"""
-        from src.ui import display_text
-        
-        # Display upgrade screen title
-        display_text(
-            self.screen,
-            "Upgrade Your Character",
-            self.fonts["large"],
-            self.colors["white"],
-            self.width // 2,
-            self.height // 3 - 50,
-            center=True
-        )
-        
-        # Display available upgrade points
-        display_text(
-            self.screen,
-            f"Available Upgrade Points: {self.player.upgrade_points}",
-            self.fonts["medium"],
-            self.colors["green"],
-            self.width // 2,
-            self.height // 3,
-            center=True
-        )
-        
-        # Draw upgrade buttons
-        click_power_button = self.ui_elements[STATE_UPGRADE]["click_power_button"]
-        click_power_button.draw(self.screen)
-        
-        crit_chance_button = self.ui_elements[STATE_UPGRADE]["crit_chance_button"]
-        crit_chance_button.draw(self.screen)
-        
-        crit_mult_button = self.ui_elements[STATE_UPGRADE]["crit_mult_button"]
-        crit_mult_button.draw(self.screen)
-        
-        # Draw continue button
-        continue_button = self.ui_elements[STATE_UPGRADE]["continue_button"]
-        continue_button.draw(self.screen)
-        
-        # Display current stats
-        y_offset = self.height // 2 + 100
-        display_text(
-            self.screen,
-            "Current Stats:",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            y_offset,
-            center=True
-        )
-        
-        # Click power stat
-        can_upgrade = self.player.can_upgrade("click_power")
-        stat_color = self.colors["green"] if can_upgrade else self.colors["white"]
-        level = self.player.stats["click_power"]["level"]
-        max_level = self.player.stats["click_power"]["max_level"]
-        value = self.player.stats["click_power"]["value"]
-        
-        display_text(
-            self.screen,
-            f"Click Power: {value} ({level}/{max_level})",
-            self.fonts["small"],
-            stat_color,
-            self.width // 4,
-            y_offset + 30,
-            center=True
-        )
-        
-        # Critical chance stat
-        can_upgrade = self.player.can_upgrade("critical_chance")
-        stat_color = self.colors["green"] if can_upgrade else self.colors["white"]
-        level = self.player.stats["critical_chance"]["level"]
-        max_level = self.player.stats["critical_chance"]["max_level"]
-        value = int(self.player.stats["critical_chance"]["value"] * 100)
-        
-        display_text(
-            self.screen,
-            f"Critical Chance: {value}% ({level}/{max_level})",
-            self.fonts["small"],
-            stat_color,
-            self.width // 2,
-            y_offset + 30,
-            center=True
-        )
-        
-        # Critical multiplier stat
-        can_upgrade = self.player.can_upgrade("critical_multiplier")
-        stat_color = self.colors["green"] if can_upgrade else self.colors["white"]
-        level = self.player.stats["critical_multiplier"]["level"]
-        max_level = self.player.stats["critical_multiplier"]["max_level"]
-        value = self.player.stats["critical_multiplier"]["value"]
-        
-        display_text(
-            self.screen,
-            f"Critical Multiplier: {value}x ({level}/{max_level})",
-            self.fonts["small"],
-            stat_color,
-            3 * self.width // 4,
-            y_offset + 30,
-            center=True
-        )
-        
-        # Next level info
-        display_text(
-            self.screen,
-            f"Next Level: {self.player.level}",
-            self.fonts["medium"],
-            self.colors["white"],
-            self.width // 2,
-            y_offset + 70,
-            center=True
-        )
-        
     def _update_pause(self, time_delta):
         """Update pause state"""
         mouse_pos = pygame.mouse.get_pos()
         mouse_clicked = pygame.mouse.get_pressed()[0]  # Left button
         
+        # Check for ESC key to resume
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_ESCAPE]:
+            self._start_transition(STATE_PLAYING)
+            logger.info("Game resumed via ESC key")
+            return
+        
         # Update resume button
         resume_button = self.ui_elements[STATE_PAUSE]["resume_button"]
         if resume_button.update(mouse_pos, mouse_clicked, self.current_time):
-            self.game_state = STATE_PLAYING
-            logger.info("Game resumed")
-        
+            self._start_transition(STATE_PLAYING)
+            logger.info("Game resumed via button")
+            
+        # Update settings button
+        settings_button = self.ui_elements[STATE_PAUSE]["settings_button"]
+        if settings_button.update(mouse_pos, mouse_clicked, self.current_time):
+            self._start_transition(STATE_SETTINGS)
+            logger.info("Opening settings from pause menu")
+            
         # Update quit button
         quit_button = self.ui_elements[STATE_PAUSE]["quit_button"]
         if quit_button.update(mouse_pos, mouse_clicked, self.current_time):
-            self.player.save_progress()
-            self.game_state = STATE_MENU
-            logger.info("Returned to menu from pause")
+            self._start_transition(STATE_MENU)
+            logger.info("Quitting to main menu")
             
     def _render_pause(self):
         """Render pause state"""
         from src.ui import display_text
         
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))  # Semi-transparent black
+        self.screen.blit(overlay, (0, 0))
+        
         # Display pause title
         display_text(
             self.screen,
-            "Game Paused",
+            "Paused",
             self.fonts["large"],
             self.colors["white"],
             self.width // 2,
@@ -1115,8 +864,69 @@ class GameEngine:
             center=True
         )
         
-        # Draw resume button
+        # Draw buttons
         self.ui_elements[STATE_PAUSE]["resume_button"].draw(self.screen)
-        
-        # Draw quit button
+        self.ui_elements[STATE_PAUSE]["settings_button"].draw(self.screen)
         self.ui_elements[STATE_PAUSE]["quit_button"].draw(self.screen)
+        
+    def _setup_ability_selection(self):
+        """Set up the ability selection screen after defeating a boss"""
+        from src.ui import Button
+        
+        # Clear previous buttons
+        self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"] = []
+        self.ui_elements[STATE_ABILITY_SELECT]["selected_abilities"] = []
+        
+        # Get three random abilities
+        available_abilities = list(self.player_abilities.keys())
+        random.shuffle(available_abilities)
+        selected_abilities = available_abilities[:3]
+        
+        # Create buttons for each ability
+        btn_width, btn_height = 200, 80
+        padding = 30
+        start_y = self.height // 2 - 50
+        
+        for i, ability_name in enumerate(selected_abilities):
+            ability = self.player_abilities[ability_name]
+            
+            # Create readable name and description
+            readable_name = ability_name.replace("_", " ").title()
+            
+            # Create button
+            ability_rect = pygame.Rect(
+                self.width // 2 - btn_width // 2,
+                start_y + i * (btn_height + padding),
+                btn_width,
+                btn_height
+            )
+            
+            ability_button = Button(
+                ability_rect,
+                readable_name,
+                self.fonts["medium"],
+                self.colors["button"],
+                border_width=2,
+                border_color=self.colors["purple"]
+            )
+            
+            self.ui_elements[STATE_ABILITY_SELECT]["ability_buttons"].append((ability_name, ability_button))
+            
+        # Continue button
+        continue_rect = pygame.Rect(
+            self.width // 2 - 100,
+            self.height - 100,
+            200,
+            50
+        )
+        
+        continue_button = Button(
+            continue_rect,
+            "Continue",
+            self.fonts["large"],
+            self.colors["button"],
+            border_width=3,
+            border_color=self.colors["green"]
+        )
+        
+        self.ui_elements[STATE_ABILITY_SELECT]["continue_button"] = continue_button

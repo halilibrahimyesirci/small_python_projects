@@ -1,12 +1,12 @@
 {
-    "level": 2,
-    "highest_level": 2,
+    "level": 1,
+    "highest_level": 1,
     "upgrade_points": 0,
-    "total_clicks": 2604,
+    "total_clicks": 307,
     "stats": {
         "click_power": {
-            "level": 1,
-            "value": 2,
+            "level": 0,
+            "value": 1,
             "max_level": 5
         },
         "critical_chance": {
